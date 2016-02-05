@@ -1,13 +1,13 @@
 :- module(type_checker, [type_check/2, type_check/1]).
 
-lookup(X, [[X, Type] | Tail], Type) :- !.
-lookup(X, [[Y, T] | Tail], Type) :-
+lookup(X, [[X, Type] | _], Type) :- !.
+lookup(X, [_ | Tail], Type) :-
     lookup(X, Tail, Type).
 
 extend(Gamma, X, T, [[X, T] | Gamma]).
 
 % number
-judge_type(Gamma, N, int) :- number(N).
+judge_type(_, N, int) :- number(N).
 
 % variable
 judge_type(Gamma, X, T) :- atom(X), lookup(X, Gamma, T).
@@ -36,7 +36,7 @@ judge_type(Gamma, define(Y, X, T_X, M, T_M), arrow(T_X, T_M)) :-
     judge_type(Gamma3, M, T_M).
 
 % const
-judge_type(Gamma, const(X, M), T) :-
+judge_type(Gamma, const(_, M), T) :-
     judge_type(Gamma, M, T).
 
 % call
@@ -45,7 +45,7 @@ judge_type(Gamma, call(M, N), T) :-
     judge_type(Gamma, M, arrow(T_N, T)).
 
 % error
-judge_type(Gamma, Exp, _) :-
+judge_type(_, Exp, _) :-
     throw(type_error(Exp)).
 
 init_gamma([

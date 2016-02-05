@@ -41,4 +41,6 @@ repl :-
 
 % main/0 is a helper predicate to call repl/0 repeatedly, until interrupted by
 % the user.
-main :- repeat, repl.
+main :-
+    repeat,
+    repl.
