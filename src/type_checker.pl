@@ -1,4 +1,4 @@
-:- module(type_checker, [type_check/2, type_check/1]).
+:- module(type_checker, [init_gamma/1, type_check/3]).
 
 lookup(X, [[X, Type] | _], Type) :- !.
 lookup(X, [_ | Tail], Type) :-
@@ -6,46 +6,57 @@ lookup(X, [_ | Tail], Type) :-
 
 extend(Gamma, X, T, [[X, T] | Gamma]).
 
-% number
-judge_type(_, N, int) :- number(N).
-
-% variable
-judge_type(Gamma, X, T) :- atom(X), lookup(X, Gamma, T).
+% judge_type/4 type_checks a valid expression in the lanague with a given
+% Gamma and produces an output type and possibly extended Gamma.
 
 % if
-judge_type(Gamma, if(M, N1, N2), T) :-
-    judge_type(Gamma, M, bool),
-    judge_type(Gamma, N1, T),
-    judge_type(Gamma, N2, T).
+judge_type(Gamma, if(M, N1, N2), T, _) :-
+    judge_type(Gamma, M, bool, _),
+    judge_type(Gamma, N1, T, _),
+    judge_type(Gamma, N2, T, _).
 
 % let
-judge_type(Gamma, let(X, M, N), T) :-
-    judge_type(Gamma, M, T1),
-    extend(Gamma, X, T1, Gamma2),
-    judge_type(Gamma2, N, T).
+judge_type(Gamma1, let(X, M, N), T, _) :-
+    judge_type(Gamma1, M, T1, _),
+    extend(Gamma1, X, T1, Gamma2),
+    judge_type(Gamma2, N, T, _).
 
 % lambda
-judge_type(Gamma, lambda(X, T_X, M), arrow(T_X, T_M)) :-
-    extend(Gamma, X, T_X, Gamma2),
-    judge_type(Gamma2, M, T_M).
+judge_type(Gamma1, lambda(X, T_X, M), arrow(T_X, T_M), _) :-
+    extend(Gamma1, X, T_X, Gamma2),
+    judge_type(Gamma2, M, T_M, _).
 
 % define
-judge_type(Gamma, define(Y, X, T_X, M, T_M), arrow(T_X, T_M)) :-
-    extend(Gamma, X, T_X, Gamma2),
+judge_type(Gamma1, define(Y, X, T_X, M, T_M), arrow(T_X, T_M), Gamma4) :-
+    extend(Gamma1, X, T_X, Gamma2),
     extend(Gamma2, Y, arrow(T_X, T_M), Gamma3),
-    judge_type(Gamma3, M, T_M).
+    judge_type(Gamma3, M, T_M, Gamma4).
 
 % const
-judge_type(Gamma, const(_, M), T) :-
-    judge_type(Gamma, M, T).
+judge_type(Gamma1, const(X, M), T, Gamma2) :-
+    judge_type(Gamma1, M, T, _),
+    extend(Gamma1, X, T, Gamma2).
 
 % call
-judge_type(Gamma, call(M, N), T) :-
-    judge_type(Gamma, N, T_N),
-    judge_type(Gamma, M, arrow(T_N, T)).
+judge_type(Gamma, call(M, N), T, _) :-
+    judge_type(Gamma, N, T_N, _),
+    judge_type(Gamma, M, arrow(T_N, T), _).
+
+% literals
+judge_type(_, true,  bool, _).
+judge_type(_, false, bool, _).
+
+% int
+judge_type(_, N, int, _) :- integer(N).
+
+% float
+judge_type(_, N, float, _) :- float(N).
+
+% variable
+judge_type(Gamma, X, T, _) :- atom(X), lookup(X, Gamma, T).
 
 % error
-judge_type(_, Exp, _) :-
+judge_type(_, Exp, _, _) :-
     throw(type_error(Exp)).
 
 init_gamma([
@@ -55,8 +66,4 @@ init_gamma([
     [diff, arrow(int, arrow(int, int))]
 ]).
 
-type_check(Prog, T) :-
-    init_gamma(Gamma),
-    judge_type(Gamma, Prog, T).
-
-type_check(Prog) :- type_check(Prog, _).
+type_check(Gamma1, Prog, Gamma2) :- judge_type(Gamma1, Prog, _, Gamma2).

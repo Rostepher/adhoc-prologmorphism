@@ -33,14 +33,16 @@ read_prompt(Msg, Input) :-
 % repl/0 is a Read Evaluate Print Loop (REPL), that reads a program from the
 % user, then type checks and evaluates the program, printing the final result
 % to stdout.
-repl :-
+repl(Gamma1, Global1) :-
     read_prompt('> ', Input),
-    catch(type_check(Input), Err1, error_handler(Err1)),
-    catch(evaluate(Input, Value), Err2, error_handler(Err2)),
-    writeln(Value).
+    catch(type_check(Gamma1, Input, Gamma2), Err1, error_handler(Err1)),
+    catch(evaluate(Input, env([], Global1), Value, Global2), Err2, error_handler(Err2)),
+    writeln(Value),
+    repl(Gamma2, Global2).
 
 % main/0 is a helper predicate to call repl/0 repeatedly, until interrupted by
 % the user.
 main :-
-    repeat,
-    repl.
+    init_gamma(Gamma),
+    init_env(env(_, Global)),
+    repl(Gamma, Global).

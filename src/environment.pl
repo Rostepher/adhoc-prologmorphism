@@ -10,12 +10,11 @@ lookup(Key, env(Rho, Gamma), Val) :-
     lookup(Key, Rho, Val);
     lookup(Key, Gamma, Val).
 
-% TODO: add stdlib functions, somehow...
 init_global_env([
-    [eq,   closure(x, lambda(y, int, primitive_eq(x, y)),   [])],
-    [sum,  closure(x, lambda(y, int, primitive_sum(x, y)),  [])],
-    [prod, closure(x, lambda(y, int, primitive_prod(x, y)), [])],
-    [diff, closure(x, lambda(y, int, primitive_diff(x, y)), [])]
+    [eq,   prim(eq)],
+    [sum,  prim(sum)],
+    [prod, prim(prod)],
+    [diff, prim(diff)]
 ]).
 
 % init_env/1 provides the initial local and global environments.
