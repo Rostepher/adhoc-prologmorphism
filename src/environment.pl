@@ -1,7 +1,9 @@
 :- module(environment, [extend/4, lookup/3, init_env/1]).
 
+% extend/4 extends a given environment with a key/value pair.
 extend(Env, Key, Val, [[Key, Val] | Env]).
 
+% lookup/3 searches for the value of a given key in an environment.
 lookup(Key, [[Key, Val] | _], Val) :- !.
 lookup(Key, [_ | Tail], Val) :-
     lookup(Key, Tail, Val).
