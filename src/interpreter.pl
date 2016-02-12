@@ -4,15 +4,23 @@
 
 :- reexport(environment, [init_env/1]).
 
-% delta/?
+% delta/3 evaluates primitives by parially applying values to a primitive atom
+% or by executing the primitive operation once it has been partially applied.
 
-delta(F, Prim).
+delta(eq(X), X, true).
+delta(eq(_), _, false).
+
+delta(sum(X),  Y, Val) :- Val is X + Y.
+delta(prod(X), Y, Val) :- Val is X * Y.
+delta(diff(X), Y, Val) :- Val is X / Y.
+
+delta(Prim, Arg, prim(Val)) :- Val =.. [Prim, Arg].
 
 % evaluate/4 evaluates a valid expression in the language with a given
 % local and global envrionment and produces an ouput value and possibly
 % extended global environment.
 %
-% Rho   - local environment
+% Rho    - local environment
 % Global - global environment
 
 % if
@@ -43,18 +51,20 @@ evaluate(const(X, M), env(Rho, Global1), _, Global3) :-
     extend(Global2, X, Val, Global3).
 
 % call
+evaluate(call(M, N), env(Rho1, Global1), Val2, Global3) :-
+    evaluate(M, env(Rho1, Global1), prim(F), Global2),
+    evaluate(N, env(Rho1, Global2), Val1, Global3),
+    delta(F, Val1, Val2).
+
 evaluate(call(M, N), env(Rho1, Global1), Val2, Global4) :-
     evaluate(M, env(Rho1, Global1), closure(X, M_C, Rho2), Global2),
     evaluate(N, env(Rho2, Global2), Val1, Global3),
     extend(Rho2, X, Val1, Rho3),
     evaluate(M_C, env(Rho3, Global3), Val2, Global4).
 
-% primitives
-evaluate(prim(F), env(Rho, Global), Prim, Global) :- delta(F, Prim).
-
 % literals
-evaluate(true,  env(Rho, Global), true,  Global).
-evaluate(false, env(Rho, Global), false, Global).
+evaluate(true,  env(_, Global), true,  Global).
+evaluate(false, env(_, Global), false, Global).
 
 % the number, variable and error cases encur extra computations, they have
 % been moved to the bottom for the sake of optimization.
