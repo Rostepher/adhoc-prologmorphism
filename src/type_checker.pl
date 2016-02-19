@@ -45,23 +45,6 @@ judge_type(Gamma, call(M, N), T, Gamma) :-
 % nil
 judge_type(Gamma, nil(T), list(T), Gamma).
 
-% cons
-judge_type(Gamma, cons(M, N), list(T), Gamma) :-
-    judge_type(Gamma, M, T, _),
-    judge_type(Gamma, N, list(T), _).
-
-% is_nil
-judge_type(Gamma, is_nil(M), bool, Gamma) :-
-    judge_type(Gamma, M, list(_), _).
-
-% head
-judge_type(Gamma, head(M), T, Gamma) :-
-    judge_type(Gamma, M, list(T), _).
-
-% tail
-judge_type(Gamma, tail(M), list(T), Gamma) :-
-    judge_type(Gamma, M, list(T), _).
-
 % literals
 judge_type(Gamma, true,  bool, Gamma).
 judge_type(Gamma, false, bool, Gamma).
@@ -80,10 +63,15 @@ judge_type(Gamma, Exp, _, _) :-
     throw(type_error(Exp, Gamma)).
 
 init_gamma([
-    [eq, arrow(int, arrow(int, bool))],
+    [eq,   arrow(int, arrow(int, bool))],
     [prod, arrow(int, arrow(int, int))],
-    [sum, arrow(int, arrow(int, int))],
-    [diff, arrow(int, arrow(int, int))]
+    [sum,  arrow(int, arrow(int, int))],
+    [diff, arrow(int, arrow(int, int))],
+
+    [is_nil, arrow(list(T), T)],
+    [cons,   arrow(T, arrow(list(T), list(T)))],
+    [head,   arrow(list(T), T)],
+    [tail,   arrow(list(T), list(T))]
 ]).
 
 type_check(Gamma1, Prog, Gamma2) :- judge_type(Gamma1, Prog, _, Gamma2).

@@ -6,7 +6,7 @@
 :- use_module(interpreter).
 
 % start main
-:- initialization main.
+% :- initialization main.
 
 % write_error/1 writes an error message for custom error predicates that can
 % be thrown in repl/0.
