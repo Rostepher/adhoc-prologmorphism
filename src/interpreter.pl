@@ -63,13 +63,20 @@ delta(Prim, Arg, prim(Val)) :- Val =.. [Prim, Arg].
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % evaluate
 
+% evaluate_if/6
+evaluate_if(true, M2, _, env(Rho, Global), Val, Global2) :-
+    evaluate(M2, env(Rho, Global), Val, Global2).
+
+evaluate_if(false, _, M3, env(Rho, Global), Val, Global2) :-
+    evaluate(M3, env(Rho, Global), Val, Global2).
+
 % evaluate_call/5 is a helper fuction for evaluating a call expression
 % where the evaluation of M is a closure or primitive function.
 
 % closure
-evaluate_call(closure(X, M_C, Rho), N, env(_, Global), Val2, Global3) :-
+evaluate_call(closure(X, M_C, Rho_C), N, env(Rho, Global), Val2, Global3) :-
     evaluate(N, env(Rho, Global), Val, Global2),
-    extend(Rho, X, Val, Rho2),
+    extend(Rho_C, X, Val, Rho2),
     evaluate(M_C, env(Rho2, Global2), Val2, Global3).
 
 % prim
@@ -85,13 +92,9 @@ evaluate_call(prim(F), N, env(Rho, Global), Val2, Global2) :-
 % Global - global environment
 
 % if
-evaluate(if(M1, M2, _), env(Rho, Global), Val, Global3) :-
-    evaluate(M1, env(Rho, Global), true, Global2),
-    evaluate(M2, env(Rho, Global2), Val, Global3).
-
-evaluate(if(M1, _, M3), env(Rho, Global), Val, Global3) :-
-    evaluate(M1, env(Rho, Global), false, Global2),
-    evaluate(M3, env(Rho, Global2), Val, Global3).
+evaluate(if(M1, M2, M3), env(Rho, Global), Val, Global3) :-
+    evaluate(M1, env(Rho, Global), Cond, Global2),
+    evaluate_if(Cond, M2, M3, env(Rho, Global2), Val, Global3).
 
 % let
 evaluate(let(X, M1, M2), env(Rho, Global), Val2, Global3) :-
