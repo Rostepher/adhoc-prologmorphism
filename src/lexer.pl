@@ -1,23 +1,76 @@
-% :- module(lexer, [lex/2]).
+:- module(lexer, [tokenize/2]).
 
 :- use_module(library(dcg/basics)).
 
 :- set_prolog_flag(double_quotes, codes).
 
-alpha(A) --> [A], { code_type(A, alpha) }.
 
-alpha_num(C)       --> [C], { code_type(C, alnum) }.
-alpha_nums([C|Cs]) --> alpha_num(C), alpha_nums(Cs).
-alpha_nums([C])    --> alpha_num(C).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Helper Predicates
 
-ident([C|Cs]) --> alpha(C), alpha_nums(Cs).
-ident([C])    --> alpha(C).
+is_alpha(Code)    :- code_type(Code, alpha).
+is_alphanum(Code) :- code_type(Code, alnum).
+is_special(Code)  :- memberchk(Code, "+-*/<>=_@^&!?").
 
-token(ident(Token)) --> ident(Token).
-token(int(Token))   --> integer(Token).
-token(float(Token)) --> float(Token).
-token(lparen)       --> [Code], { char_code('(', Code) }.
-token(rparen)       --> [Code], { char_code(')', Code) }.
+is_ident(Code)  :- is_alpha(Code); is_special(Code).
+is_identr(Code) :- is_alphanum(Code); is_special(Code).
 
-tokenize([Token|Tokens]) --> blanks, token(Token), tokenize(Tokens).
-tokenize([])             --> [].
+is_keyword(Codes) :- memberchk(Codes, [
+    % keywords
+    "define",
+    "if",
+    "lambda",
+    "let",
+
+    % literals
+    "true",
+    "false"
+]).
+
+is_type(Codes) :- memberchk(Codes, [
+    "bool",
+    "float",
+    "int"
+]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Rules
+
+ident([C|Cs])  --> [C], { is_ident(C)  }, identr(Cs).
+identr([C|Cs]) --> [C], { is_identr(C) }, identr(Cs).
+identr([])     --> [].
+
+keyword(K) --> ident(K), { is_keyword(K) }.
+
+type(T) --> ident(T), { is_type(T) }.
+
+symbol(lparen)    --> "(".
+symbol(rparen)    --> ")".
+symbol(arrow)     --> "->".
+symbol(colon)     --> ":".
+symbol(semicolon) --> ";".
+
+token(Symbol)       --> symbol(Symbol).
+token(Keyword)      --> keyword(K), { atom_codes(Keyword, K) }.
+token(type(Type))   --> type(T), { atom_codes(Type, T) }.
+token(ident(Ident)) --> ident(Ident).
+token(int(Int))     --> integer(Int).
+token(float(Float)) --> float(Float).
+
+% illegal token
+token(_)            --> [Token], { throw(lexer_error(Token)) }.
+
+tokens([Token|Tokens]) -->
+    blanks,
+    token(Token),
+    tokens(Tokens),
+    !. % longest wins
+tokens([]) --> blanks, [].
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% tokenize/2
+
+tokenize(Codes, Tokens) :-
+    phrase(tokens(Tokens), Codes).
