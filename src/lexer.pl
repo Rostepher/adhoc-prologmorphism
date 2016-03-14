@@ -8,12 +8,17 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Helper Predicates
 
-is_alpha(Code)    :- code_type(Code, alpha).
-is_alphanum(Code) :- code_type(Code, alnum).
-is_special(Code)  :- memberchk(Code, "+-*/<>=_@^&!?").
+is_letter(Code) :- code_type(Code, alpha).
+is_digit(Code)  :- code_type(Code, digit).
 
-is_ident(Code)  :- is_alpha(Code); is_special(Code).
-is_identr(Code) :- is_alphanum(Code); is_special(Code).
+is_initial(Code) :-
+    is_letter(Code);
+    memberchk(Code, "!$&+-*/:<=>?~_^"). % TODO: add '%' character
+
+is_subsequent(Code) :-
+    is_initial(Code);
+    is_digit(Code);
+    memberchk(Code, ".").
 
 is_keyword(Codes) :- memberchk(Codes, [
     % keywords
@@ -37,8 +42,8 @@ is_type(Codes) :- memberchk(Codes, [
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Rules
 
-ident([C|Cs])  --> [C], { is_ident(C)  }, identr(Cs).
-identr([C|Cs]) --> [C], { is_identr(C) }, identr(Cs).
+ident([C|Cs])  --> [C], { is_initial(C) }, identr(Cs).
+identr([C|Cs]) --> [C], { is_subsequent(C) }, identr(Cs).
 identr([])     --> [].
 
 keyword(K) --> ident(K), { is_keyword(K) }.
@@ -47,26 +52,31 @@ type(T) --> ident(T), { is_type(T) }.
 
 symbol(lparen)    --> "(".
 symbol(rparen)    --> ")".
+symbol(lbracket)  --> "[".
+symbol(rbracket)  --> "]".
+symbol(comma)     --> ",".
 symbol(arrow)     --> "->".
 symbol(colon)     --> ":".
 symbol(semicolon) --> ";".
 
-token(Symbol)       --> symbol(Symbol).
+% float must come before int
+token(float(Float)) --> dcg_basics:float(Float).
+token(int(Int))     --> dcg_basics:integer(Int).
+
 token(Keyword)      --> keyword(K), { atom_codes(Keyword, K) }.
-token(type(Type))   --> type(T), { atom_codes(Type, T) }.
+token(type(Type))   --> type(T),    { atom_codes(Type, T) }.
+token(Symbol)       --> symbol(Symbol).
 token(ident(Ident)) --> ident(Ident).
-token(int(Int))     --> integer(Int).
-token(float(Float)) --> float(Float).
 
 % illegal token
-token(_)            --> [Token], { throw(lexer_error(Token)) }.
+token(_) --> [Code], { char_code(Char, Code), throw(lexer_error(Char)) }.
 
 tokens([Token|Tokens]) -->
-    blanks,
+    dcg_basics:blanks,
     token(Token),
     tokens(Tokens),
     !. % longest wins
-tokens([]) --> blanks, [].
+tokens([]) --> dcg_basics:blanks, [].
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
