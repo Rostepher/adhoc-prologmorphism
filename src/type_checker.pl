@@ -37,7 +37,7 @@ judge_type(Gamma, if(M, N1, N2), T, Gamma) :-
     judge_type(Gamma, N2, T, _).
 
 % lambda
-judge_type(Gamma1, lambda(var(X, T_X), M), arrow(T_X, T_M), Gamma1) :-
+judge_type(Gamma1, lambda(var(X), T_X, M), arrow(T_X, T_M), Gamma1) :-
     extend(Gamma1, X, T_X, Gamma2),
     judge_type(Gamma2, M, T_M, _).
 
@@ -53,7 +53,12 @@ judge_type(Gamma, apply(M, N), T, Gamma) :-
     judge_type(Gamma, M, arrow(T_N, T), _).
 
 % nil
-judge_type(Gamma, nil(T), list(T), Gamma).
+judge_type(Gamma, nil, list(_), Gamma).
+
+% lists
+judge_type(Gamma, cons(Head, Tail), list(T), Gamma3) :-
+    judge_type(Gamma, Head, T, Gamma2),
+    judge_type(Gamma2, Tail, list(T), Gamma3).
 
 % literals
 judge_type(Gamma, true,  bool, Gamma).

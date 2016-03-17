@@ -85,7 +85,7 @@ expression(Exprs) -->
     expressions(Exprs),
     [rparen].
 
-expressions([])     --> [].
+expressions([E])    --> expression(E).
 expressions([E|Es]) --> expression(E), expressions(Es).
 
 variable(var(Name, Type)) -->
@@ -100,9 +100,9 @@ variables([V|Vs]) -->
     variables(Vs).
 
 type(T)             --> [lparen], type(T), [rparen].
-type(T)             --> [type(T)].
-type(list(T))       --> [lbracket, type(T), rbracket].
-type(arrow(T1, T2)) --> [type(T1), arrow], type(T2).
+type(T)             --> [ident(T)].
+type(list(T))       --> [lbracket, ident(T), rbracket].
+type(arrow(T1, T2)) --> [ident(T1), arrow], type(T2).
 
 formals([Var]) --> [lparen], variable(Var), [rparen].
 formals(Vars)  --> [lparen], variables(Vars), [rparen].
@@ -141,10 +141,10 @@ bool(true)  --> [true].
 bool(false) --> [false].
 
 list(cons(Head, Tail)) --> [lbracket], [Head], list_tail(Tail), [rbracket].
-list(nil(_))           --> [lbracket, rbracket].
+list(nil)              --> [lbracket, rbracket].
 
 list_tail(cons(Head, Tail)) --> [Head], list_tail(Tail).
-list_tail(nil(_))           --> [].
+list_tail(nil)              --> [].
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -176,21 +176,15 @@ transform(if(Cond, Then, Else), if(Cond2, Then2, Else2)) :-
 
 % lambda
 transform(lambda(Vars, Body), Lambda) :-
-    transform(Vars, Vars2),
-    transform(Body, Body2),
-    transform_lambda(Vars2, Body2, Lambda).
+    transform_lambda(Vars, Body, Lambda).
 
 % let
 transform(let(Vals, Body), Let) :-
-    transform(Vals, Vals2),
-    transform(Body, Body2),
-    transform_let(Vals2, Body2, Let).
+    transform_let(Vals, Body, Let).
 
 % apply
 transform(apply(Expr, Args), Apply) :-
-    transform(Expr, Expr2),
-    transform(Args, Args2),
-    transform_apply(Expr2, Args2, Apply).
+    transform_apply(Expr, Args, Apply).
 
 % constants
 transform(true, true).
@@ -205,7 +199,7 @@ transform(var(Name, Type), var(Name, Type)).
 transform(val(Name, Expr), val(Name, Expr)).
 
 % lists
-transform(nil(T), nil(T)).
+transform(nil, nil).
 transform(cons(Head, Tail), cons(Head2, Tail2)) :-
     transform(Head, Head2),
     transform(Tail, Tail2).
@@ -213,15 +207,22 @@ transform(cons(Head, Tail), cons(Head2, Tail2)) :-
 % error
 transform(Expr, _) :- throw(transform_error(Expr)).
 
-transform_lambda([var(Name, Type)],        Body, lambda(var(Name), Type, Body)).
+transform_lambda([var(Name, Type)], Body, lambda(var(Name), Type, Body2)) :-
+    transform(Body, Body2).
 transform_lambda([var(Name, Type) | Rest], Body, lambda(var(Name), Type, Lambda)) :-
     transform_lambda(Rest, Body, Lambda).
 
-transform_let([val(Name, Expr)],        Body, let(var(Name), Expr, Body)).
-transform_let([val(Name, Expr) | Rest], Body, let(var(Name), Expr, Let)) :-
+transform_let([val(Name, Expr)], Body, let(var(Name), Expr2, Body2)) :-
+    transform(Expr, Expr2),
+    transform(Body, Body2).
+transform_let([val(Name, Expr) | Rest], Body, let(var(Name), Expr2, Let)) :-
+    transform(Expr, Expr2),
     transform_let(Rest, Body, Let).
 
-transform_apply(Expr, [Arg], apply(Expr, Arg)).
-transform_apply(Expr, [H|T], apply(Apply, H)) :-
-    transform_apply(Expr, T, Apply).
+transform_apply(Expr, [Arg], apply(Expr2, Arg2)) :-
+    transform(Expr, Expr2),
+    transform(Arg, Arg2).
+transform_apply(Expr, [Arg | Rest], apply(Apply, Arg2)) :-
+    transform(Arg, Arg2),
+    transform_apply(Expr, Rest, Apply).
 

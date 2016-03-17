@@ -32,12 +32,6 @@ is_keyword(Codes) :- memberchk(Codes, [
     "false"
 ]).
 
-is_type(Codes) :- memberchk(Codes, [
-    "bool",
-    "float",
-    "int"
-]).
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Rules
@@ -47,8 +41,6 @@ identr([C|Cs]) --> [C], { is_subsequent(C) }, identr(Cs).
 identr([])     --> [].
 
 keyword(K) --> ident(K), { is_keyword(K) }.
-
-type(T) --> ident(T), { is_type(T) }.
 
 symbol(lparen)    --> "(".
 symbol(rparen)    --> ")".
@@ -65,7 +57,6 @@ token(int(Int))     --> dcg_basics:integer(Int).
 
 token(Symbol)       --> symbol(Symbol).
 token(Keyword)      --> keyword(K), { atom_codes(Keyword, K) }.
-token(type(Type))   --> type(T),    { atom_codes(Type, T) }.
 token(ident(Ident)) --> ident(I),   { atom_codes(Ident, I) }.
 
 % illegal token
