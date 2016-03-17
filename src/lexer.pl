@@ -63,10 +63,10 @@ symbol(semicolon) --> ";".
 token(float(Float)) --> dcg_basics:float(Float).
 token(int(Int))     --> dcg_basics:integer(Int).
 
+token(Symbol)       --> symbol(Symbol).
 token(Keyword)      --> keyword(K), { atom_codes(Keyword, K) }.
 token(type(Type))   --> type(T),    { atom_codes(Type, T) }.
-token(Symbol)       --> symbol(Symbol).
-token(ident(Ident)) --> ident(Ident).
+token(ident(Ident)) --> ident(I),   { atom_codes(Ident, I) }.
 
 % illegal token
 token(_) --> [Code], { char_code(Char, Code), throw(lexer_error(Char)) }.

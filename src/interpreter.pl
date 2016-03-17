@@ -70,17 +70,17 @@ evaluate_if(true, M2, _, env(Rho, Global), Val, Global2) :-
 evaluate_if(false, _, M3, env(Rho, Global), Val, Global2) :-
     evaluate(M3, env(Rho, Global), Val, Global2).
 
-% evaluate_call/5 is a helper fuction for evaluating a call expression
+% evaluate_apply/5 is a helper fuction for evaluating an apply expression
 % where the evaluation of M is a closure or primitive function.
 
 % closure
-evaluate_call(closure(X, M_C, Rho_C), N, env(Rho, Global), Val2, Global3) :-
+evaluate_apply(closure(X, M_C, Rho_C), N, env(Rho, Global), Val2, Global3) :-
     evaluate(N, env(Rho, Global), Val, Global2),
     extend(Rho_C, X, Val, Rho2),
     evaluate(M_C, env(Rho2, Global2), Val2, Global3).
 
 % prim
-evaluate_call(prim(F), N, env(Rho, Global), Val2, Global2) :-
+evaluate_apply(prim(F), N, env(Rho, Global), Val2, Global2) :-
     evaluate(N, env(Rho, Global), Val, Global2),
     delta(F, Val, Val2).
 
@@ -114,10 +114,10 @@ evaluate(const(X, M), env(Rho, Global), _, Global3) :-
     evaluate(M, env(Rho, Global), Val, Global2),
     extend(Global2, X, Val, Global3).
 
-% call
-evaluate(call(M, N), env(Rho, Global), Val2, Global3) :-
+% apply
+evaluate(apply(M, N), env(Rho, Global), Val2, Global3) :-
     evaluate(M, env(Rho, Global), M2, Global2),
-    evaluate_call(M2, N, env(Rho, Global2), Val2, Global3).
+    evaluate_apply(M2, N, env(Rho, Global2), Val2, Global3).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -138,13 +138,15 @@ evaluate(true,  env(_, Global), true,  Global).
 evaluate(false, env(_, Global), false, Global).
 
 % int
-evaluate(N, env(_, Global), N, Global) :- integer(N).
+evaluate(int(N), env(_, Global), N, Global).
 
 % float
-evaluate(N, env(_, Global), N, Global) :- float(N).
+evaluate(float(N), env(_, Global), N, Global).
 
 % variable
-evaluate(Var, env(Rho, Global), Val, Global) :-
+evaluate(var(Var), env(Rho, Global), Val, Global) :-
+    lookup(Var, env(Rho, Global), Val).
+evaluate(var(Var, _), env(Rho, Global), Val, Global) :-
     lookup(Var, env(Rho, Global), Val).
 
 

@@ -6,21 +6,21 @@
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Grammar
+% parse/2
 
-% parse(Tokens, Ast) :-
-%     phrase(program(ParseTree), Tokens),
-%     parse_tree_ast(ParseTree, Ast).
-
-parse(Tokens, ParseTree) :- phrase(program(ParseTree), Tokens).
+parse(Tokens, Ast) :-
+    phrase(program(ParseTree), Tokens),
+    !,
+    parse_tree_ast(ParseTree, Ast).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Programs
 
-program([F|Fs]) -->
-    form(F),
-    program(Fs).
+program([Form|Forms]) -->
+    form(Form),
+    !,
+    program(Forms).
 program([]) --> [].
 
 form(Node) --> (definition(Node) ; expression(Node)).
@@ -29,13 +29,21 @@ form(Node) --> (definition(Node) ; expression(Node)).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Definitions
 
+% constant
 definition(define(var(Name), Expr)) -->
-    [lparen],
-    [define],
+    [lparen, define],
     [ident(Name)],
     expression(Expr),
     [rparen].
 
+% explicit type annotation
+definition(define(var(Name), Type, Expr)) -->
+    [lparen, define],
+    [ident(Name)],
+    [colon],
+    type(Type),
+    expression(Expr),
+    [rparen].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Expressions
@@ -55,10 +63,17 @@ expression(if(Cond, Then, Else)) -->
     [rparen].
 
 % lambda
-expression(lambda(Vars, Expr)) -->
+expression(lambda(Vars, Body)) -->
     [lparen, lambda],
     formals(Vars),
-    expression(Expr),
+    expression(Body),
+    [rparen].
+
+% let
+expression(let(Vals, Body)) -->
+    [lparen, let],
+    bindings(Vals),
+    expression(Body),
     [rparen].
 
 % apply
@@ -77,16 +92,34 @@ variable(var(Name, Type)) -->
     [ident(Name), colon],
     type(Type).
 
+variables([V]) --> [lparen], variable(V), [rparen].
 variables([V|Vs]) -->
+    [lparen],
     variable(V),
+    [rparen],
     variables(Vs).
-variables([V]) --> variable(V).
 
 type(T)             --> [lparen], type(T), [rparen].
 type(T)             --> [type(T)].
+type(list(T))       --> [lbracket, type(T), rbracket].
 type(arrow(T1, T2)) --> [type(T1), arrow], type(T2).
 
-formals(Vs) --> [lparen], variables(Vs), [rparen].
+formals([Var]) --> [lparen], variable(Var), [rparen].
+formals(Vars)  --> [lparen], variables(Vars), [rparen].
+
+value(val(Name, Expr)) -->
+    [ident(Name)],
+    expression(Expr).
+
+values([V]) --> [lparen], value(V), [rparen].
+values([V|Vs]) -->
+    [lparen],
+    value(V),
+    [rparen],
+    values(Vs).
+
+bindings([Val]) --> [lparen], value(Val), [rparen].
+bindings(Vals)  --> [lparen], values(Vals), [rparen].
 
 application(apply(Expr, Args)) -->
     [lparen],
@@ -108,10 +141,10 @@ bool(true)  --> [true].
 bool(false) --> [false].
 
 list(cons(Head, Tail)) --> [lbracket], [Head], list_tail(Tail), [rbracket].
-list(nil)              --> [lbracket, rbracket].
+list(nil(_))           --> [lbracket, rbracket].
 
 list_tail(cons(Head, Tail)) --> [Head], list_tail(Tail).
-list_tail(nil)              --> [].
+list_tail(nil(_))           --> [].
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -125,8 +158,13 @@ transform([Head|Tail], [NewHead|NewTail]) :-
     transform(Head, NewHead),
     transform(Tail, NewTail).
 
-% define
+% define (constant)
 transform(define(Var, Expr), define(Var2, Expr2)) :-
+    transform(Var, Var2),
+    transform(Expr, Expr2).
+
+% define (function)
+transform(define(Var, Type, Expr), define(Var2, Type, Expr2)) :-
     transform(Var, Var2),
     transform(Expr, Expr2).
 
@@ -137,9 +175,16 @@ transform(if(Cond, Then, Else), if(Cond2, Then2, Else2)) :-
     transform(Else, Else2).
 
 % lambda
-transform(lambda(Vars, Exprs), lambda(Vars2, Exprs2)) :-
+transform(lambda(Vars, Body), Lambda) :-
     transform(Vars, Vars2),
-    transform(Exprs, Exprs2).
+    transform(Body, Body2),
+    transform_lambda(Vars2, Body2, Lambda).
+
+% let
+transform(let(Vals, Body), Let) :-
+    transform(Vals, Vals2),
+    transform(Body, Body2),
+    transform_let(Vals2, Body2, Let).
 
 % apply
 transform(apply(Expr, Args), Apply) :-
@@ -147,7 +192,7 @@ transform(apply(Expr, Args), Apply) :-
     transform(Args, Args2),
     transform_apply(Expr2, Args2, Apply).
 
-%constants
+% constants
 transform(true, true).
 transform(false, false).
 
@@ -157,14 +202,24 @@ transform(float(F), float(F)).
 transform(var(Name), var(Name)).
 transform(var(Name, Type), var(Name, Type)).
 
+transform(val(Name, Expr), val(Name, Expr)).
+
 % lists
-transform(nil, nil).
+transform(nil(T), nil(T)).
 transform(cons(Head, Tail), cons(Head2, Tail2)) :-
     transform(Head, Head2),
     transform(Tail, Tail2).
 
 % error
 transform(Expr, _) :- throw(transform_error(Expr)).
+
+transform_lambda([var(Name, Type)],        Body, lambda(var(Name), Type, Body)).
+transform_lambda([var(Name, Type) | Rest], Body, lambda(var(Name), Type, Lambda)) :-
+    transform_lambda(Rest, Body, Lambda).
+
+transform_let([val(Name, Expr)],        Body, let(var(Name), Expr, Body)).
+transform_let([val(Name, Expr) | Rest], Body, let(var(Name), Expr, Let)) :-
+    transform_let(Rest, Body, Let).
 
 transform_apply(Expr, [Arg], apply(Expr, Arg)).
 transform_apply(Expr, [H|T], apply(Apply, H)) :-

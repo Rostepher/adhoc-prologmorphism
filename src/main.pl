@@ -2,6 +2,8 @@
 
 :- module(main, [main/0]).
 
+:- use_module(lexer).
+:- use_module(parser).
 :- use_module(type_checker).
 :- use_module(interpreter).
 
@@ -29,9 +31,9 @@ write_error(Err) :-
 % read_prompt/2 is a helper predicate to wirte a prompt to stdout and then
 % read user input.
 read_prompt(Msg, Input) :-
-    write(Msg),
     prompt(_, ''),
-    read(Input).
+    write(Msg),
+    read_line_to_codes(user_input, Input).
 
 % rep/4 is the 'R', 'E' and 'P' in REPL (Read Evaluate Print Loop), that reads
 % a program from the user, then type checks and evaluates the program, printing
@@ -43,14 +45,21 @@ rep(Gamma1, Global1, Gamma2, Global2) :-
     % Ctl-D (a.k.a. end_of_file)
     (Input == end_of_file -> halt; true),
 
+    % tokenzie
+    tokenize(Input, Tokens),
+
+    % parse
+    parse(Tokens, Ast),
+
     % type check
-    type_check(Gamma1, Input, Gamma2),
+    type_check(Gamma1, Ast, Gamma2),
 
     % evaluate
-    evaluate(Input, env([], Global1), Val, Global2),
+    % evaluate(Input, env([], Global1), Val, Global2),
 
     % print
-    write_term(Val, [attributes(write), nl(true)]).
+    % write_term(Val, [attributes(write), nl(true)]).
+    write_term(Ast, [attributes(write), nl(true)]).
 
 % repl/2 is the loop enclosing rep/4, which makes up the complete REPL.
 repl(Gamma1, Global1) :-
