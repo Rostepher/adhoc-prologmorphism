@@ -30,23 +30,23 @@ form(Node) --> (definition(Node) ; expression(Node)).
 % Definitions
 
 % constant
-definition(define(var(Name), Expr)) -->
+definition(define(var(Name), Exp)) -->
     [lparen, define],
     [ident(Name)],
-    expression(Expr),
+    expression(Exp),
     [rparen].
 
 % explicit type annotation
-definition(define(var(Name), Type, Expr)) -->
+definition(define(var(Name), Type, Exp)) -->
     [lparen, define],
     [ident(Name)],
     [colon],
     type(Type),
-    expression(Expr),
+    expression(Exp),
     [rparen].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Expressions
+% Expessions
 
 % constants
 expression(Const) --> constant(Const).
@@ -80,9 +80,9 @@ expression(let(Vals, Body)) -->
 expression(Apply) --> application(Apply).
 
 % precedence
-expression(Exprs) -->
+expression(Exps) -->
     [lparen],
-    expressions(Exprs),
+    expressions(Exps),
     [rparen].
 
 expressions([E])    --> expression(E).
@@ -107,9 +107,9 @@ type(arrow(T1, T2)) --> [ident(T1), arrow], type(T2).
 formals([Var]) --> [lparen], variable(Var), [rparen].
 formals(Vars)  --> [lparen], variables(Vars), [rparen].
 
-value(val(Name, Expr)) -->
+value(val(Name, Exp)) -->
     [ident(Name)],
-    expression(Expr).
+    expression(Exp).
 
 values([V]) --> [lparen], value(V), [rparen].
 values([V|Vs]) -->
@@ -121,9 +121,9 @@ values([V|Vs]) -->
 bindings([Val]) --> [lparen], value(Val), [rparen].
 bindings(Vals)  --> [lparen], values(Vals), [rparen].
 
-application(apply(Expr, Args)) -->
+application(apply(Exp, Args)) -->
     [lparen],
-    expression(Expr),
+    expression(Exp),
     expressions(Args),
     { \+ Args = [] },
     [rparen].
@@ -159,14 +159,14 @@ transform([Head|Tail], [NewHead|NewTail]) :-
     transform(Tail, NewTail).
 
 % define (constant)
-transform(define(Var, Expr), define(Var2, Expr2)) :-
+transform(define(Var, Exp), define(Var2, Exp2)) :-
     transform(Var, Var2),
-    transform(Expr, Expr2).
+    transform(Exp, Exp2).
 
 % define (function)
-transform(define(Var, Type, Expr), define(Var2, Type, Expr2)) :-
+transform(define(Var, Type, Exp), define(Var2, Type, Exp2)) :-
     transform(Var, Var2),
-    transform(Expr, Expr2).
+    transform(Exp, Exp2).
 
 % if
 transform(if(Cond, Then, Else), if(Cond2, Then2, Else2)) :-
@@ -183,8 +183,8 @@ transform(let(Vals, Body), Let) :-
     transform_let(Vals, Body, Let).
 
 % apply
-transform(apply(Expr, Args), Apply) :-
-    transform_apply(Expr, Args, Apply).
+transform(apply(Exp, Args), Apply) :-
+    transform_apply(Exp, Args, Apply).
 
 % constants
 transform(true, true).
@@ -196,7 +196,7 @@ transform(float(F), float(F)).
 transform(var(Name), var(Name)).
 transform(var(Name, Type), var(Name, Type)).
 
-transform(val(Name, Expr), val(Name, Expr)).
+transform(val(Name, Exp), val(Name, Exp)).
 
 % lists
 transform(nil, nil).
@@ -205,24 +205,24 @@ transform(cons(Head, Tail), cons(Head2, Tail2)) :-
     transform(Tail, Tail2).
 
 % error
-transform(Expr, _) :- throw(transform_error(Expr)).
+transform(Exp, _) :- throw(transform_error(Exp)).
 
 transform_lambda([var(Name, Type)], Body, lambda(var(Name), Type, Body2)) :-
     transform(Body, Body2).
 transform_lambda([var(Name, Type) | Rest], Body, lambda(var(Name), Type, Lambda)) :-
     transform_lambda(Rest, Body, Lambda).
 
-transform_let([val(Name, Expr)], Body, let(var(Name), Expr2, Body2)) :-
-    transform(Expr, Expr2),
+transform_let([val(Name, Exp)], Body, let(var(Name), Exp2, Body2)) :-
+    transform(Exp, Exp2),
     transform(Body, Body2).
-transform_let([val(Name, Expr) | Rest], Body, let(var(Name), Expr2, Let)) :-
-    transform(Expr, Expr2),
+transform_let([val(Name, Exp) | Rest], Body, let(var(Name), Exp2, Let)) :-
+    transform(Exp, Exp2),
     transform_let(Rest, Body, Let).
 
-transform_apply(Expr, [Arg], apply(Expr2, Arg2)) :-
-    transform(Expr, Expr2),
+transform_apply(Exp, [Arg], apply(Exp2, Arg2)) :-
+    transform(Exp, Exp2),
     transform(Arg, Arg2).
-transform_apply(Expr, [Arg | Rest], apply(Apply, Arg2)) :-
+transform_apply(Exp, [Arg | Rest], apply(Apply, Arg2)) :-
     transform(Arg, Arg2),
-    transform_apply(Expr, Rest, Apply).
+    transform_apply(Exp, Rest, Apply).
 

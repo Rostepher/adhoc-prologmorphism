@@ -78,6 +78,9 @@ judge_type(Gamma, Exp, _, _) :-
     throw(type_error(Exp, Gamma)).
 
 init_gamma([
+    % bool
+    ['not', arrow(bool, bool)],
+
     % int
     ['=', arrow(int, arrow(int, bool))],
     ['+', arrow(int, arrow(int, int))],

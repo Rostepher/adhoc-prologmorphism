@@ -8,10 +8,22 @@
 :- use_module(interpreter).
 
 % start main
-% :- initialization main.
+:- initialization main.
 
 % write_error/1 writes an error message for custom error predicates that can
 % be thrown in repl/0.
+
+% lexer_error
+write_error(lexer_error(Char)) :-
+    format('A lexer error occurred with character: "~w"~n', [Char]).
+
+% parser_error
+write_error(parser_error(Token)) :-
+    format('A parser error occurred with token: "~w"~n', [Token]).
+
+% transform_error
+write_error(transform_error(Exp)) :-
+    format('A transformation error occurred with expression: "~w"~n', [Exp]).
 
 % type_error
 write_error(type_error(Exp, Gamma)) :-
@@ -30,36 +42,35 @@ write_error(Err) :-
 
 % read_prompt/2 is a helper predicate to wirte a prompt to stdout and then
 % read user input.
-read_prompt(Msg, Input) :-
-    prompt(_, ''),
-    write(Msg),
-    read_line_to_codes(user_input, Input).
+% read_prompt(Msg, Input) :-
+%     % prompt(_, ''),
+%     write(Msg),
+%     read_line_to_codes(user_input, Input).
 
 % rep/4 is the 'R', 'E' and 'P' in REPL (Read Evaluate Print Loop), that reads
 % a program from the user, then type checks and evaluates the program, printing
 % the final result to stdout.
 rep(Gamma1, Global1, Gamma2, Global2) :-
     % read
-    read_prompt('> ', Input),
+    read_line_to_codes(user_input, Input),
 
     % Ctl-D (a.k.a. end_of_file)
     (Input == end_of_file -> halt; true),
 
     % tokenzie
-    tokenize(Input, Tokens),
+    lexer:tokenize(Input, Tokens), !,
 
     % parse
-    parse(Tokens, Ast),
+    parser:parse(Tokens, Ast), !,
 
     % type check
-    type_check(Gamma1, Ast, Gamma2),
+    type_checker:type_check(Gamma1, Ast, Gamma2), !,
 
     % evaluate
-    % evaluate(Input, env([], Global1), Val, Global2),
+    interpreter:eval(Ast, env([], Global1), Val, Global2), !,
 
     % print
-    % write_term(Val, [attributes(write), nl(true)]).
-    write_term(Ast, [attributes(write), nl(true)]).
+    write_term(Val, [attributes(write), nl(true)]).
 
 % repl/2 is the loop enclosing rep/4, which makes up the complete REPL.
 repl(Gamma1, Global1) :-
@@ -97,4 +108,3 @@ main :-
     repl(Gamma, Global),
 
     halt.
-

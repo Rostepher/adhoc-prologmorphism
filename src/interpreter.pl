@@ -17,15 +17,28 @@ lookup(Key, env(Rho, Gamma), Val) :-
     lookup(Key, Env, Val).
 
 init_global_env([
-    [eq,   prim(eq)],
-    [sum,  prim(sum)],
-    [prod, prim(prod)],
-    [diff, prim(diff)],
+    % bool
+    ['not', prim('not')],
 
-    [is_nil, prim(is_nil)],
-    [cons,   prim(cons)],
-    [head,   prim(head)],
-    [tail,   prim(tail)]
+    % int
+    ['=', prim('=')],
+    ['+', prim('+')],
+    ['-', prim('-')],
+    ['*', prim('*')],
+    ['/', prim('/')],
+
+    % float
+    ['=.', prim('=.')],
+    ['+.', prim('+.')],
+    ['-.', prim('-.')],
+    ['*.', prim('*.')],
+    ['/.', prim('/.')],
+
+    % list
+    ['nil?', prim('nil?')],
+    ['cons', prim('cons')],
+    ['head', prim('head')],
+    ['tail', prim('tail')]
 ]).
 
 % init_env/1 provides the initial local and global environments.
@@ -39,24 +52,41 @@ init_env(env([], Gamma)) :-
 % delta/3 evaluates primitives by parially applying values to a primitive atom
 % or by executing the primitive operation once it has been partially applied.
 
-delta(eq(X), X, true).
-delta(eq(_), _, false).
+% bools
+delta('not', true, false).
+delta('not', false, true).
 
-delta(sum(X),  Y, Val) :- Val is X + Y.
-delta(prod(X), Y, Val) :- Val is X * Y.
-delta(diff(X), Y, Val) :- Val is X / Y.
+% ints
+delta('='(X), X, true).
+delta('='(_), _, false).
 
-delta(is_nil, nil(_), true).
-delta(is_nil, _,      false).
+delta('+'(X), Y, Val) :- Val is X + Y.
+delta('-'(X), Y, Val) :- Val is X - Y.
+delta('*'(X), Y, Val) :- Val is X * Y.
+delta('/'(X), Y, Val) :- Val is X / Y.
 
-delta(cons(M), N, cons(M, N)).
+% floats
+delta('=.'(X), X, true).
+delta('=.'(_), _, false).
 
-delta(head, nil(T), nil(T)).
-delta(head, cons(M, _), M).
+delta('+.'(X), Y, Val) :- Val is X + Y.
+delta('-.'(X), Y, Val) :- Val is X - Y.
+delta('*.'(X), Y, Val) :- Val is X * Y.
+delta('/.'(X), Y, Val) :- Val is X / Y.
 
-delta(tail, nil(T), nil(T)).
-delta(tail, cons(_, N), N).
+% lists
+delta('nil?', nil, true).
+delta('nil?', _,   false).
 
+delta('cons'(M), N, cons(M, N)).
+
+delta('head', nil, nil).
+delta('head', cons(M, _), M).
+
+delta('tail', nil, nil).
+delta('tail', cons(_, N), N).
+
+% catch-all
 delta(Prim, Arg, prim(Val)) :- Val =.. [Prim, Arg].
 
 
@@ -91,28 +121,33 @@ evaluate_apply(prim(F), N, env(Rho, Global), Val2, Global2) :-
 % Rho    - local environment
 % Global - global environment
 
+% define
+% evaluate(define(Y, X, _, M, _), env(Rho, Global), _, Global2) :-
+%     extend(Global, Y, closure(X, M, Rho), Global2).
+
+% const
+% evaluate(const(X, M), env(Rho, Global), _, Global3) :-
+%     evaluate(M, env(Rho, Global), Val, Global2),
+%     extend(Global2, X, Val, Global3).
+
+% define
+evaluate(define(var(X), _, M), env(Rho, Global), none, Global3) :-
+    evaluate(M, env(Rho, Global), Val, Global2),
+    extend(Global2, X, Val, Global3).
+
 % if
 evaluate(if(M1, M2, M3), env(Rho, Global), Val, Global3) :-
     evaluate(M1, env(Rho, Global), Cond, Global2),
     evaluate_if(Cond, M2, M3, env(Rho, Global2), Val, Global3).
 
 % let
-evaluate(let(X, M1, M2), env(Rho, Global), Val2, Global3) :-
+evaluate(let(var(X), M1, M2), env(Rho, Global), Val2, Global3) :-
     evaluate(M1, env(Rho, Global), Val, Global2),
     extend(Rho, X, Val, Rho2),
     evaluate(M2, env(Rho2, Global2), Val2, Global3).
 
 % lambda
-evaluate(lambda(X, _, M), env(Rho, Global), closure(X, M, Rho), Global).
-
-% define
-evaluate(define(Y, X, _, M, _), env(Rho, Global), _, Global2) :-
-    extend(Global, Y, closure(X, M, Rho), Global2).
-
-% const
-evaluate(const(X, M), env(Rho, Global), _, Global3) :-
-    evaluate(M, env(Rho, Global), Val, Global2),
-    extend(Global2, X, Val, Global3).
+evaluate(lambda(var(X), _, M), env(Rho, Global), closure(X, M, Rho), Global).
 
 % apply
 evaluate(apply(M, N), env(Rho, Global), Val2, Global3) :-
@@ -124,7 +159,10 @@ evaluate(apply(M, N), env(Rho, Global), Val2, Global3) :-
 % list builtins
 
 % nil
-evaluate(nil(T), env(_, Global), nil(T), Global).
+evaluate(nil, env(_, Global), nil, Global).
+
+% cons
+evaluate(cons(M, N), env(_, Global), cons(M, N), Global).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -156,3 +194,12 @@ evaluate(var(Var, _), env(Rho, Global), Val, Global) :-
 evaluate(Exp, env(Rho, Global), _, _) :-
     throw(runtime_error(Exp, env(Rho, Global))).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% eval/2
+
+eval([Prog], env(Rho, Global), [Result], Global2) :-
+    evaluate(Prog, env(Rho, Global), Result, Global2).
+eval([Prog | Rest], env(Rho, Global), [Result | Result2], Global3) :-
+    evaluate(Prog, env(Rho, Global), Result, Global2),
+    eval(Rest, env(Rho, Global2), Result2, Global3).
