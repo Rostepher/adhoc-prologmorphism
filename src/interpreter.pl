@@ -131,6 +131,11 @@ evaluate_apply(prim(F), N, env(Rho, Global), Val2, Global2) :-
 %     extend(Global2, X, Val, Global3).
 
 % define
+evaluate(define(var(X), M), env(Rho, Global), none, Global3) :-
+    evaluate(M, env(Rho, Global), Val, Global2),
+    extend(Global2, X, Val, Global3).
+
+% define (explicit type)
 evaluate(define(var(X), _, M), env(Rho, Global), none, Global3) :-
     evaluate(M, env(Rho, Global), Val, Global2),
     extend(Global2, X, Val, Global3).
