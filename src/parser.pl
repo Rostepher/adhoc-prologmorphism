@@ -184,7 +184,8 @@ transform(let(Vals, Body), Let) :-
 
 % apply
 transform(apply(Exp, Args), Apply) :-
-    transform_apply(Exp, Args, Apply).
+    reverse(Args, Args2),
+    transform_apply(Exp, Args2, Apply).
 
 % constants
 transform(true, true).
