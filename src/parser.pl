@@ -164,7 +164,8 @@ transform(define(Var, Exp), define(Var2, Exp2)) :-
     transform(Exp, Exp2).
 
 % define (function)
-transform(define(Var, Type, Exp), define(Var2, Type, Exp2)) :-
+transform(define(Var, Type, Exp), define(Var2, Type2, Exp2)) :-
+    transform_type(Type, Type2),
     transform(Var, Var2),
     transform(Exp, Exp2).
 
@@ -195,7 +196,8 @@ transform(int(I), int(I)).
 transform(float(F), float(F)).
 
 transform(var(Name), var(Name)).
-transform(var(Name, Type), var(Name, Type)).
+transform(var(Name, Type), var(Name, Type2)) :-
+    transform_type(Type, Type2).
 
 transform(val(Name, Exp), val(Name, Exp)).
 
@@ -207,6 +209,16 @@ transform(cons(Head, Tail), cons(Head2, Tail2)) :-
 
 % error
 transform(Exp, _) :- throw(transform_error(Exp)).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% helpers
+
+transform_type(arrow(T1, T2), forall(TypeVars, arrow(Type1, Type2))) :-
+    transform_type(T1, forall(TyVars1, Type1)),
+    transform_type(T2, forall(TyVars2, Type2)),
+    union(TyVars1, TyVars2, TypeVars).
+transform_type(Type, forall([Type], Type)).
 
 transform_lambda([var(Name, Type)], Body, lambda(var(Name), Type, Body2)) :-
     transform(Body, Body2).
