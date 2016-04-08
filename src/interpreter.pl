@@ -121,22 +121,12 @@ evaluate_apply(prim(F), N, env(Rho, Global), Val2, Global2) :-
 % Rho    - local environment
 % Global - global environment
 
-% define
-% evaluate(define(Y, X, _, M, _), env(Rho, Global), _, Global2) :-
-%     extend(Global, Y, closure(X, M, Rho), Global2).
+% defun
+evaluate(defun(var(F), var(X), _, M, _), env(Rho, Global), none, Global2) :-
+    extend(Global, F, closure(X, M, Rho), Global2).
 
-% const
-% evaluate(const(X, M), env(Rho, Global), _, Global3) :-
-%     evaluate(M, env(Rho, Global), Val, Global2),
-%     extend(Global2, X, Val, Global3).
-
-% define
-evaluate(define(var(X), M), env(Rho, Global), none, Global3) :-
-    evaluate(M, env(Rho, Global), Val, Global2),
-    extend(Global2, X, Val, Global3).
-
-% define (explicit type)
-evaluate(define(var(X), _, M), env(Rho, Global), none, Global3) :-
+% defvar
+evaluate(defvar(var(X), M), env(Rho, Global), none, Global3) :-
     evaluate(M, env(Rho, Global), Val, Global2),
     extend(Global2, X, Val, Global3).
 

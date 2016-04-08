@@ -5,27 +5,17 @@
 % judge_type/4 type_checks a valid expression in the lanague with a given
 % Gamma and produces an output type and possibly extended Gamma.
 
-% const
-% judge_type(Gamma1, const(X, M), T, Gamma2) :-
-%     judge_type(Gamma1, M, T, _),
-%     extend(Gamma1, X, T, Gamma2).
+% defvar
+judge_type(Gamma, defvar(var(X), M), T, Gamma2) :-
+    judge_type(Gamma, M, T, _),
+    extend(Gamma, X, T, Gamma2).
 
-% define
-% judge_type(Gamma1, define(Y, X, T_X, M, T_M), arrow(T_X, T_M), Gamma4) :-
-%     extend(Gamma1, X, T_X, Gamma2),
-%     extend(Gamma2, Y, arrow(T_X, T_M), Gamma3),
-%     judge_type(Gamma3, M, T_M, Gamma4).
-
-% define (constant)
-judge_type(Gamma1, define(var(X), M), T, Gamma2) :-
-    judge_type(Gamma1, M, T, _),
-    extend(Gamma1, X, T, Gamma2).
-
-% define (function)
-judge_type(Gamma1, define(var(X), T, M), T, Gamma4) :-
-    simple_extend(Gamma1, X, T, Gamma2),
-    judge_type(Gamma2, M, T, _),
-    extend(Gamma1, X, T, Gamma4).
+% defun
+judge_type(Gamma, defun(var(F), var(X), T_X, M, T_M), arrow(T_X, T_M), Gamma4) :-
+    simple_extend(Gamma, X, T_X, Gamma2),
+    simple_extend(Gamma2, F, arrow(T_X, T_M), Gamma3),
+    judge_type(Gamma3, M, T_M, _),
+    extend(Gamma, F, arrow(T_X, T_M), Gamma4).
 
 % if
 judge_type(Gamma, if(M, N1, N2), T, Gamma) :-
@@ -34,14 +24,14 @@ judge_type(Gamma, if(M, N1, N2), T, Gamma) :-
     judge_type(Gamma, N2, T, _).
 
 % lambda
-judge_type(Gamma1, lambda(var(X), T_X, M), arrow(T_X, T_M), Gamma1) :-
-    simple_extend(Gamma1, X, T_X, Gamma2),
+judge_type(Gamma, lambda(var(X), T_X, M), arrow(T_X, T_M), Gamma) :-
+    simple_extend(Gamma, X, T_X, Gamma2),
     judge_type(Gamma2, M, T_M, _).
 
 % let
-judge_type(Gamma1, let(var(X), M, N), T, Gamma1) :-
-    judge_type(Gamma1, M, T1, _),
-    extend(Gamma1, X, T1, Gamma2),
+judge_type(Gamma, let(var(X), M, N), T, Gamma) :-
+    judge_type(Gamma, M, T1, _),
+    extend(Gamma, X, T1, Gamma2),
     judge_type(Gamma2, N, T, _).
 
 % apply
@@ -76,10 +66,10 @@ judge_type(Gamma, Exp, _, _) :-
 
 
 % convienience predicates
-type_check(Gamma1, [Prog], Gamma2) :-
-    judge_type(Gamma1, Prog, _, Gamma2).
-type_check(Gamma1, [Prog | Rest], Gamma3) :-
-    judge_type(Gamma1, Prog, _, Gamma2),
+type_check(Gamma, [Prog], Gamma2) :-
+    judge_type(Gamma, Prog, _, Gamma2).
+type_check(Gamma, [Prog | Rest], Gamma3) :-
+    judge_type(Gamma, Prog, _, Gamma2),
     type_check(Gamma2, Rest, Gamma3).
 
 
@@ -92,7 +82,7 @@ simple_extend(Gamma, X, T, [[X, forall([], T)] | Gamma]).
 extend(Gamma, X, T, [[X, forall(Vs, T)] | Gamma]) :-
     free_env_vars(Gamma, GVs),
     free_type_vars(T, TVs),
-    subtract(GVs, TVs, Vs).
+    subtract(TVs, GVs, Vs).
 
 
 % lookup
@@ -111,8 +101,9 @@ fresh_vars([X | Xs], [Y | Ys]) :- fresh_vars(Xs, Ys).
 replace(T, Vars, Fresh, Type) :-
     var(T), !,
     replace_var(T, Vars, Fresh, Type).
-replace(int,  _, _, int).
-replace(bool, _, _, bool).
+replace(bool,  _, _, bool).
+replace(float, _, _, float).
+replace(int,   _, _, int).
 replace(list(T), Vars, Fresh, list(Type)) :-
     replace(T, Vars, Fresh, Type).
 replace(arrow(T1, T2), Vars, Fresh, arrow(Type1, Type2)) :-
