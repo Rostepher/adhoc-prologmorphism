@@ -1,3 +1,5 @@
+doc/*.pdf
+
 ### LaTeX ###
 *.acn
 *.acr

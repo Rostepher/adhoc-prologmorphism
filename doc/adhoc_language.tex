@@ -1,0 +1,384 @@
+\documentclass[10pt,a4paper,fleqn]{article}
+
+% imports
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{listings}
+% \usepackage{parskip}  % no-indent para
+\usepackage{amssymb}  % number sets
+\usepackage{syntax}   % (E)BNF
+
+% (E)BNF
+\usepackage{backnaur}
+\renewcommand{\bnfpo}{::=}
+
+% judgements
+\usepackage{semantic}
+\reservestyle{\command}{\textbf}
+\command{true,false}                                    % literals
+\command{apply,closure,defun,defvar,if,lambda,let,prim} % keywords
+\command{cons,nil}                                      % lists
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Title & TOC
+
+\title{The \textit{adhoc} Language}
+\author{Ross Bayer}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Abstract
+
+\section*{Abstract}
+
+This report defines the syntax, typing and semtics for the small programming
+language \textit{adhoc}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Introduction
+
+\section{Introduction}
+
+Adhoc polymorphism is ...
+
+The language \textit{adhoc} is a small, functional programming language that ...
+
+Do not use it for non-trivial programs, as the language is not intended as a
+general-purpose language, but rather as a proof-of-concept and learning
+project.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Lexical Structure
+
+\section{Lexical Structure}
+
+The lexical structure of the language \textbf{adhoc} is simple. The only
+valid characters are those representable in ASCII. Identifiers can contain
+a mixture of special character and alpha-numeric. The lexical specification
+is denoted using EBNF form.
+
+% float styling
+\floatstyle{boxed}
+\restylefloat{figure}
+
+\begin{figure}[H]
+\renewcommand{\grammarlabel}[2]{\synt{#1}\hfill#2}
+\setlength{\grammarindent}{8em}
+\begin{grammar}
+<digit> ::= 0 | 1 | ... | 9
+
+<digits> ::= <digit>+
+
+<int> ::= '-'? <digits>
+
+<float> ::= '-'? <digits> ('.' <digits>)?
+
+<alpha> ::= a | b | ... | z | A | B | ... | Z
+
+<initial> ::= <alpha> | <special>
+
+<subsequent> ::= <alpha> | <digit> | <special> | '.'
+
+<ident> ::= <initial> <subsequent>+
+
+<keywork> ::= 'defun'
+    \alt 'defvar'
+    \alt 'if'
+    \alt 'lambda'
+    \alt 'let'
+    \alt 'true'
+    \alt 'false'
+
+\end{grammar}
+\end{figure}
+
+\begin{figure}[H]
+    \begin{bnf*}
+        \bnfprod{list}
+                {\bnfpn{listitems} \bnfor \bnfes} \\
+        \bnfprod{listitems}
+                {\bnfpn{item} \bnfor \bnfpn{items}
+                 \bnfsp \bnfts{;} \bnfsp \bnfpn{listitems}} \\
+        \bnfprod{item}
+                {\bnftd{description of item}}
+    \end{bnf*}
+\end{figure}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Grammar
+\section{Grammar}
+
+The grammar for the language \textbf{adhoc} is represented below in
+EBNF form. It translates to a simplified AST used in the type judgements
+and operational semantics below.
+
+% float styling
+\floatstyle{boxed}
+\restylefloat{figure}
+
+% grammar
+\begin{figure}[H]
+\setlength{\grammarindent}{8em}
+\renewcommand{\grammarlabel}[2]{\synt{#1}\hfill#2}
+\begin{grammar}
+<program> ::= <form> <program>
+
+<form> ::= <definition>
+    \alt <expression>
+
+<definition> ::= '(' 'defun' <ident> ':' <type> <expression> ')'
+    \alt '(' 'defvar' <ident> <expression> ')'
+
+<expression> ::= <constant>
+    \alt <ident>
+    \alt '(' 'if' <expression> <expression> <expression> ')'
+    \alt '(' 'lambda' <formals> <expression> ')'
+    \alt '(' 'let' <bindings> <expression> ')'
+    \alt <application>
+    \alt '(' <expression> ')'
+
+<variable> ::= <ident> ':' <type>
+
+<type> ::= '(' <type> ')'
+    \alt <ident>
+    \alt '(' <ident> ')'
+    \alt <ident> '->' <type>
+
+<formal> ::= '(' <variable>+ ')'
+
+<value> ::= <ident> <expression>
+
+<bindings> ::= '(' <value>+ ')'
+
+<application> ::= '(' <expression> <expression>+ ')'
+\end{grammar}
+\end{figure}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Type Judgements
+
+\section{Type Judgements}
+
+The language features strong typing with the following built-in types:
+
+% float styling
+\floatstyle{boxed}
+\restylefloat{figure}
+\begin{figure}[H]
+\setlength{\grammarindent}{5em}
+\begin{grammar}
+<type> ::= int
+       \alt float
+       \alt bool
+       \alt list $t$
+       \alt $t_1 \rightarrow t_2$
+\end{grammar}
+\end{figure}
+
+Below are the type judgements used to infer and validate the types of
+expressions in the language.
+
+% bool literals
+\[
+    \inference{}{\Gamma |- \<true> : bool}
+    \hspace{1em}
+    \inference{}{\Gamma |- \<false> : bool}
+\]
+
+% int and float
+\[
+    \inference{n \in \mathbb{Z}}{\Gamma |- n : int}
+    \hspace{1em}
+    \inference{n \in \mathbb{R}}{\Gamma |- n : float}
+\]
+
+% variable
+\[\inference{x : \tau \in \Gamma}{\Gamma |- x : \tau}\]
+
+% if
+\[\inference
+	{
+    	\Gamma |- M_1 : bool \\
+    	\Gamma |- M_2 : \tau \\
+        \Gamma |- M_3 : \tau
+    }
+    {\Gamma |- \<if>(M_1, M_2, M_3) : \tau}
+\]
+
+% let
+\[\inference
+	{
+	    \Gamma |- M : \tau \\
+	    \Gamma, M : \tau |- N : \tau'
+	}
+    {\Gamma |- \<let>(x, M, N) : \tau'}
+\]
+
+% lambda
+\[\inference
+    {\Gamma, x : \tau |- M : \tau'}
+    {\Gamma |- \<lambda>(x, \tau, N) : \tau'}
+\]
+
+% define
+\[\inference
+    {\Gamma, x : \tau, M : \tau' |- f : \tau -> \tau'}
+    {\Gamma |- \<defun>(f, x, \tau, M, \tau') : \tau -> \tau'}
+\]
+
+% const
+\[\inference
+    {\Gamma |- M : \tau}
+    {\Gamma |- \<defvar>(x, M) : \tau}
+\]
+
+% call
+\[\inference
+    {
+        \Gamma |- N : \tau \\
+        \Gamma |- M : \tau -> \tau'
+    }
+    {\Gamma |- \<apply>(M, N) : \tau'}
+\]
+
+% nil
+\[\inference{}{\Gamma |- \<nil> : list_\tau}\]
+
+% cons
+\[\inference
+    {
+        \Gamma |- M : \tau \\
+        \Gamma |- N : \tau
+    }
+    {\Gamma |- \<cons>(M, N) : list_\tau}
+\]
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Operational Semantics
+
+\section{Operational Semantics}
+
+The \textbf{adhoc} langauge has clearly defined operational semantics.
+To allow for self-recursive functions a global environment $G$ is
+threaded through. The operational semantics for the language are as
+follows:
+
+% boolean literals
+
+\[
+    \inference{}{(\<true>, \rho, G) \Downarrow (\<true>, G)}
+    \hspace{1em}
+    \inference{}{(\<false>, \rho, G) \Downarrow (\<false>, G)}
+\]
+
+% numbers
+\[\inference{}{(n, \rho, G) \Downarrow (n, G')}\]
+
+% variables
+\[\inference{$lookup$(x, G) = v}{(x, \rho, G) \Downarrow (v, G')}\]
+
+% if
+\[
+\inference
+	{
+ 	    (M_1, \rho, G) \Downarrow (\<true>, G) \\
+        (M_2, \rho, G') \Downarrow (v, G'')
+    }
+	{(\<if>(M_1, M_2, M_3), \rho, G) \Downarrow (v, G'')}
+\hspace{1em}
+\inference
+	{
+ 	    (M_1, \rho, G) \Downarrow (\<false>, G) \\
+        (M_3, \rho, G') \Downarrow (v, G'')
+	}
+	{(\<if>(M_1, M_2, M_3), \rho, G) \Downarrow (v, G'')}
+\]
+
+% let
+\[\inference
+ 	{
+     	(M_1, \rho, G) \Downarrow (v, G') \\
+        (M_2, \rho[x \mapsto v], G') \Downarrow (v', G'')
+    }
+ 	{(\<let>(x, M_1, M_2), \rho, G) \Downarrow (v', G'')}
+\]
+
+% lambda
+\[\inference
+ 	{}
+    {(\<lambda>(x, t_x, M), \rho, G) \Downarrow (\<closure>(x, M, \rho), G)}
+\]
+
+% defun
+\[\inference
+ 	{}
+ 	{(\<defun>(f, x, t_x, M, t_M), \rho, G) \Downarrow ($_$, \rho, G[f \mapsto \<closure>(x, M, \rho)])}
+\]
+
+% defvar
+\[\inference
+ 	{}
+    {(\<defvar>(x, M), \rho, G) \Downarrow ($_$, \rho, G[x \mapsto M])}
+\]
+
+% call closure
+\[\inference
+ 	{
+     	(M, \rho, G) \Downarrow (\<closure>(x, M_c,\rho'), G') \\
+      	(N, \rho, G') \Downarrow (v, \rho, G'') \\
+      	(M_c, \rho'[x \mapsto v], G'') \Downarrow (v', G''')
+     }
+     {(\<apply>(M, N), \rho, G) \Downarrow (v', G''')}
+\]
+
+% call primitive
+\[\inference
+ 	{
+     	(M, \rho, G) \Downarrow (\<prim>(f), G') \\
+      	(N, \rho, G') \Downarrow (v, \rho, G'') \\
+  	    \delta(f, v) = v'
+     }
+ {(\<apply>(M, N), \rho, G) \Downarrow (v', G'')}
+\]
+
+% nil
+\[\inference{}{(\<nil>(\tau), \rho, G) \Downarrow (\<nil>(\tau), G)}\]
+
+% cons
+\[\inference
+    {
+        (M, \rho, G) \Downarrow (v', G') \\
+        (N, \rho, G) \Downarrow (v'', G'')
+    }
+    {(\<cons>(M, N), \rho, G) \Downarrow (\<cons>(v', v''), G)}
+\]
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Extensions for Adhoc-Polymorphism
+
+\section{Extensions for Adhoc-Polymorphism}
+
+TODO
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Standard Library
+
+\section{Standard Library}
+
+TODO
+
+\end{document}
