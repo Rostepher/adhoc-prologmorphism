@@ -22,7 +22,8 @@ is_subsequent(Code) :-
 
 is_keyword(Codes) :- memberchk(Codes, [
     % keywords
-    "define",
+    "defun",
+    "defvar",
     "if",
     "lambda",
     "let",
