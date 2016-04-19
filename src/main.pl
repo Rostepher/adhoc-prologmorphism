@@ -10,6 +10,8 @@
 % start main
 :- initialization main.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % write_error/1 writes an error message for custom error predicates that can
 % be thrown in repl/0.
 
@@ -47,9 +49,12 @@ write_error(Err) :-
 %     write(Msg),
 %     read_line_to_codes(user_input, Input).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % rep/4 is the 'R', 'E' and 'P' in REPL (Read Evaluate Print Loop), that reads
 % a program from the user, then type checks and evaluates the program, printing
 % the final result to stdout.
+
 rep(Gamma1, Global1, Gamma2, Global2) :-
     % read
     read_line_to_codes(user_input, Input),
@@ -72,7 +77,10 @@ rep(Gamma1, Global1, Gamma2, Global2) :-
     % print
     write_term(Val, [attributes(write), nl(true)]).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % repl/2 is the loop enclosing rep/4, which makes up the complete REPL.
+
 repl(Gamma1, Global1) :-
     (catch((R = success, rep(Gamma1, Global1, Gamma2, Global2)),
         Err,
@@ -87,8 +95,11 @@ repl(Gamma1, Global1) :-
         % else
         repl(Gamma2, Global2)).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % main/0 is a helper predicate to setup the initial environment and then to
 % call repl/2, until interrupted by the user.
+
 main :-
     % command line arguments
     current_prolog_flag(argv, Argv),

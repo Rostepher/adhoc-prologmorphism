@@ -1,7 +1,7 @@
 :- module(interpreter, [evaluate/4, init_env/1]).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % environment
 
 % extend/4 extends a given environment with a key/value pair.
@@ -46,7 +46,7 @@ init_env(env([], Gamma)) :-
     init_global_env(Gamma).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % delta
 
 % delta/3 evaluates primitives by parially applying values to a primitive atom
@@ -90,7 +90,7 @@ delta('tail', cons(_, N), N).
 delta(Prim, Arg, prim(Val)) :- Val =.. [Prim, Arg].
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % evaluate
 
 % evaluate_if/6
@@ -150,7 +150,7 @@ evaluate(apply(M, N), env(Rho, Global), Val2, Global3) :-
     evaluate_apply(M2, N, env(Rho, Global2), Val2, Global3).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % list builtins
 
 % nil
@@ -161,7 +161,7 @@ evaluate(cons(M, N), env(Rho, Global), cons(M2, N), Global2) :-
     evaluate(M, env(Rho, Global), M2, Global2).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % literals
 %
 % the number, variable and error cases encur extra computations, they have
@@ -184,14 +184,14 @@ evaluate(var(Var, _), env(Rho, Global), Val, Global) :-
     lookup(Var, env(Rho, Global), Val).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % error
 
 evaluate(Exp, env(Rho, Global), _, _) :-
     throw(runtime_error(Exp, env(Rho, Global))).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % eval/2
 
 eval([Prog], env(Rho, Global), [Result], Global2) :-
