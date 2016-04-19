@@ -5,7 +5,23 @@
 :- set_prolog_flag(double_quotes, codes).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% dgc helper predicates
+
+:- meta_predicate brackets(//, ?, *).
+brackets(Goal) --> [lbracket], Goal, [rbracket].
+brackets(Goal) --> [lbracket], brackets(Goal), [rbracket].
+
+:- meta_predicate parens(//, ?, *).
+parens(Goal) --> [lparen], Goal, [rparen].
+parens(Goal) --> [lparen], parens(Goal), [rparen].
+
+:- meta_predicate optional_parens(//, ?, *).
+optional_parens(Goal) --> Goal.
+optional_parens(Goal) --> parens(Goal).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % parse/2
 
 parse(Tokens, Ast) :-
@@ -14,8 +30,8 @@ parse(Tokens, Ast) :-
     parse_tree_ast(ParseTree, Ast).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Programs
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% programs
 
 program([Form|Forms]) -->
     form(Form),
@@ -23,30 +39,31 @@ program([Form|Forms]) -->
     program(Forms).
 program([]) --> [].
 
-form(Node) --> (definition(Node) ; expression(Node)).
+form(Node) --> definition(Node).
+form(Node) --> expression(Node).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Definitions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% definitions
 
-% constant
-definition(define(var(Name), Exp)) -->
-    [lparen, define],
+% variable
+definition(defvar(var(Name), Exp)) -->
+    [lparen, defvar],
     [ident(Name)],
     expression(Exp),
     [rparen].
 
-% explicit type annotation
-definition(define(var(Name), Type, Exp)) -->
-    [lparen, define],
-    [ident(Name)],
-    [colon],
-    type(Type),
+% function
+definition(defun(Var, Args, Exp)) -->
+    [lparen, defun],
+    parens(variable(Var)),
+    formals(Args),
     expression(Exp),
     [rparen].
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Expessions
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% expessions
 
 % constants
 expression(Const) --> constant(Const).
@@ -80,10 +97,7 @@ expression(let(Vals, Body)) -->
 expression(Apply) --> application(Apply).
 
 % precedence
-expression(Exps) -->
-    [lparen],
-    expressions(Exps),
-    [rparen].
+expression(Exps) --> parens(expressions(Exps)).
 
 expressions([E])    --> expression(E).
 expressions([E|Es]) --> expression(E), expressions(Es).
@@ -92,34 +106,28 @@ variable(var(Name, Type)) -->
     [ident(Name), colon],
     type(Type).
 
-variables([V]) --> [lparen], variable(V), [rparen].
-variables([V|Vs]) -->
-    [lparen],
-    variable(V),
-    [rparen],
-    variables(Vs).
-
-type(T)             --> [lparen], type(T), [rparen].
+type(T)             --> parens(type(T)).
 type(T)             --> [ident(T)].
-type(list(T))       --> [lbracket, ident(T), rbracket].
+type(list(T))       --> brackets([ident(T)]).
 type(arrow(T1, T2)) --> [ident(T1), arrow], type(T2).
 
-formals([Var]) --> [lparen], variable(Var), [rparen].
-formals(Vars)  --> [lparen], variables(Vars), [rparen].
+variables([V])    --> parens(variable(V)).
+variables([V|Vs]) --> parens(variable(V)), variables(Vs).
+
+formals([Var]) --> parens(variable(Var)).
+formals(Vars)  --> parens(variables(Vars)).
 
 value(val(Name, Exp)) -->
     [ident(Name)],
     expression(Exp).
 
-values([V]) --> [lparen], value(V), [rparen].
+values([V]) --> parens(value(V)).
 values([V|Vs]) -->
-    [lparen],
-    value(V),
-    [rparen],
+    parens(value(V)),
     values(Vs).
 
-bindings([Val]) --> [lparen], value(Val), [rparen].
-bindings(Vals)  --> [lparen], values(Vals), [rparen].
+bindings([Val]) --> parens(value(Val)).
+bindings(Vals)  --> parens(values(Vals)).
 
 application(apply(Exp, Args)) -->
     [lparen],
@@ -129,8 +137,8 @@ application(apply(Exp, Args)) -->
     [rparen].
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Constants
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% constants
 
 constant(Bool)         --> bool(Bool).
 constant(int(Int))     --> [int(Int)].
@@ -140,14 +148,14 @@ constant(List)         --> list(List).
 bool(true)  --> [true].
 bool(false) --> [false].
 
-list(cons(Head, Tail)) --> [lbracket], [Head], list_tail(Tail), [rbracket].
-list(nil)              --> [lbracket, rbracket].
+list(cons(Head, Tail)) --> [lbracket, Head], list_tail(Tail), [rbracket].
+list(nil)              --> brackets([]).
 
 list_tail(cons(Head, Tail)) --> [Head], list_tail(Tail).
 list_tail(nil)              --> [].
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Parse Tree -> AST
 
 parse_tree_ast(ParseTree, Ast) :-
@@ -158,16 +166,20 @@ transform([Head|Tail], [NewHead|NewTail]) :-
     transform(Head, NewHead),
     transform(Tail, NewTail).
 
-% define (constant)
-transform(define(Var, Exp), define(Var2, Exp2)) :-
+% defvar (variable)
+transform(defvar(Var, Exp), defvar(Var2, Exp2)) :-
     transform(Var, Var2),
     transform(Exp, Exp2).
 
-% define (function)
-transform(define(Var, Type, Exp), define(Var2, Type2, Exp2)) :-
-    transform_type(Type, Type2),
+% defun (function)
+transform(defun(Var, [Arg], Exp), defun(Var2, Arg2, Exp2)) :-
     transform(Var, Var2),
+    transform(Arg, Arg2),
     transform(Exp, Exp2).
+transform(defun(Var, [Arg | Args], Exp), defun(Var2, Arg2, Lambda)) :-
+    transform(Var, Var2),
+    transform(Arg, Arg2),
+    transform_lambda(Args, Exp, Lambda).
 
 % if
 transform(if(Cond, Then, Else), if(Cond2, Then2, Else2)) :-
@@ -188,18 +200,19 @@ transform(apply(Exp, Args), Apply) :-
     reverse(Args, Args2),
     transform_apply(Exp, Args2, Apply).
 
-% constants
-transform(true, true).
-transform(false, false).
-
-transform(int(I), int(I)).
-transform(float(F), float(F)).
-
+% var
 transform(var(Name), var(Name)).
 transform(var(Name, Type), var(Name, Type2)) :-
     transform_type(Type, Type2).
 
+% val
 transform(val(Name, Exp), val(Name, Exp)).
+
+% constants
+transform(true, true).
+transform(false, false).
+transform(int(I), int(I)).
+transform(float(F), float(F)).
 
 % lists
 transform(nil, nil).
@@ -211,18 +224,14 @@ transform(cons(Head, Tail), cons(Head2, Tail2)) :-
 transform(Exp, _) :- throw(transform_error(Exp)).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% helpers
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% transform helper predicates
 
-transform_type(arrow(T1, T2), forall(TypeVars, arrow(Type1, Type2))) :-
-    transform_type(T1, forall(TyVars1, Type1)),
-    transform_type(T2, forall(TyVars2, Type2)),
-    union(TyVars1, TyVars2, TypeVars).
-transform_type(Type, forall([Type], Type)).
+transform_type(T, T).
 
-transform_lambda([var(Name, Type)], Body, lambda(var(Name), Type, Body2)) :-
+transform_lambda([var(Name, Type)], Body, lambda(var(Name, Type), Body2)) :-
     transform(Body, Body2).
-transform_lambda([var(Name, Type) | Rest], Body, lambda(var(Name), Type, Lambda)) :-
+transform_lambda([var(Name, Type) | Rest], Body, lambda(var(Name, Type), Lambda)) :-
     transform_lambda(Rest, Body, Lambda).
 
 transform_let([val(Name, Exp)], Body, let(var(Name), Exp2, Body2)) :-

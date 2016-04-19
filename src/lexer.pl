@@ -5,8 +5,8 @@
 :- set_prolog_flag(double_quotes, codes).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Helper Predicates
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% helper predicates
 
 is_letter(Code) :- code_type(Code, alpha).
 is_digit(Code)  :- code_type(Code, digit).
@@ -34,8 +34,8 @@ is_keyword(Codes) :- memberchk(Codes, [
 ]).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Rules
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% rules
 
 ident([C|Cs])  --> [C], { is_initial(C) }, identr(Cs).
 identr([C|Cs]) --> [C], { is_subsequent(C) }, identr(Cs).
@@ -71,8 +71,9 @@ tokens([Token|Tokens]) -->
 tokens([]) --> dcg_basics:blanks, [].
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% tokenize/2
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% tokenize/2 is a helper predicate to transform a list of codes into a list of
+% tokens.
 
 tokenize(Codes, Tokens) :-
     phrase(tokens(Tokens), Codes).
