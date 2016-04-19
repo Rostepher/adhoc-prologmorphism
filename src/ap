@@ -1,0 +1,6 @@
+#!/usr/bin/env swipl
+
+:- use_module(main).
+
+% start main
+:- initialization main.

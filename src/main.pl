@@ -1,14 +1,9 @@
-#!/usr/bin/env swipl
-
 :- module(main, [main/0]).
 
 :- use_module(lexer).
 :- use_module(parser).
 :- use_module(type_checker).
 :- use_module(interpreter).
-
-% start main
-:- initialization main.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
