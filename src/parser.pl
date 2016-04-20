@@ -47,17 +47,20 @@ form(Node) --> expression(Node).
 % definitions
 
 % variable
-definition(defvar(var(Name), Exp)) -->
+definition(defvar(var(Var), Exp)) -->
     [lparen, defvar],
-    [ident(Name)],
+    [ident(Var)],
     expression(Exp),
     [rparen].
 
 % function
-definition(defun(Var, Args, Exp)) -->
+definition(defun(var(Fun), Args, Exp, ExpT)) -->
     [lparen, defun],
-    parens(variable(Var)),
+    [lparen, ident(Fun)],
     formals(Args),
+    [colon],
+    type(ExpT),
+    [rparen],
     expression(Exp),
     [rparen].
 
@@ -69,7 +72,7 @@ definition(defun(Var, Args, Exp)) -->
 expression(Const) --> constant(Const).
 
 % var
-expression(var(Name)) --> [ident(Name)].
+expression(var(Var)) --> [ident(Var)].
 
 % if
 expression(if(Cond, Then, Else)) -->
@@ -97,34 +100,39 @@ expression(let(Vals, Body)) -->
 expression(Apply) --> application(Apply).
 
 % precedence
-expression(Exps) --> parens(expressions(Exps)).
+expression(Exp) --> parens(expression(Exp)).
 
-expressions([E])    --> expression(E).
-expressions([E|Es]) --> expression(E), expressions(Es).
+expressions([Exp]) --> expression(Exp).
+expressions([Exp | Exps]) -->
+    expression(Exp),
+    expressions(Exps).
 
-variable(var(Name, Type)) -->
-    [ident(Name), colon],
-    type(Type).
+variable([var(Var), T]) -->
+    [ident(Var), colon],
+    type(T).
 
 type(T)             --> parens(type(T)).
 type(T)             --> [ident(T)].
 type(list(T))       --> brackets([ident(T)]).
+type(arrow(T1, T2)) --> parens(type(T1)), [arrow], type(T2).
 type(arrow(T1, T2)) --> [ident(T1), arrow], type(T2).
 
-variables([V])    --> parens(variable(V)).
-variables([V|Vs]) --> parens(variable(V)), variables(Vs).
+variables([Var]) --> parens(variable(Var)).
+variables([Var | Vars]) -->
+    parens(variable(Var)),
+    variables(Vars).
 
 formals([Var]) --> parens(variable(Var)).
 formals(Vars)  --> parens(variables(Vars)).
 
-value(val(Name, Exp)) -->
-    [ident(Name)],
+value([var(Var), Exp]) -->
+    [ident(Var)],
     expression(Exp).
 
-values([V]) --> parens(value(V)).
-values([V|Vs]) -->
-    parens(value(V)),
-    values(Vs).
+values([Val]) --> parens(value(Val)).
+values([Val | Vals]) -->
+    parens(value(Val)),
+    values(Vals).
 
 bindings([Val]) --> parens(value(Val)).
 bindings(Vals)  --> parens(values(Vals)).
@@ -140,45 +148,47 @@ application(apply(Exp, Args)) -->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % constants
 
-constant(Bool)         --> bool(Bool).
+constant(true)         --> [true].
+constant(false)        --> [false].
 constant(int(Int))     --> [int(Int)].
 constant(float(Float)) --> [float(Float)].
 constant(List)         --> list(List).
 
-bool(true)  --> [true].
-bool(false) --> [false].
+list(cons(Head, Tail)) -->
+    [lbracket],
+    expression(Head),
+    list_tail(Tail),
+    [rbracket].
+list(nil) --> brackets([]).
 
-list(cons(Head, Tail)) --> [lbracket, Head], list_tail(Tail), [rbracket].
-list(nil)              --> brackets([]).
-
-list_tail(cons(Head, Tail)) --> [Head], list_tail(Tail).
-list_tail(nil)              --> [].
+list_tail(cons(Head, Tail)) -->
+    expression(Head),
+    list_tail(Tail).
+list_tail(nil) --> [].
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Parse Tree -> AST
+% parse_tree_ast/2
 
 parse_tree_ast(ParseTree, Ast) :-
     transform(ParseTree, Ast).
 
 transform([], []).
-transform([Head|Tail], [NewHead|NewTail]) :-
-    transform(Head, NewHead),
-    transform(Tail, NewTail).
+transform([Head | Tail], [Head2 | Tail2]) :-
+    transform(Head, Head2),
+    transform(Tail, Tail2).
 
 % defvar (variable)
-transform(defvar(Var, Exp), defvar(Var2, Exp2)) :-
-    transform(Var, Var2),
+transform(defvar(var(Var), Exp), defvar(var(Var), Exp2)) :-
     transform(Exp, Exp2).
 
 % defun (function)
-transform(defun(Var, [Arg], Exp), defun(Var2, Arg2, Exp2)) :-
-    transform(Var, Var2),
-    transform(Arg, Arg2),
+transform(defun(var(Fun), [[var(Arg), ArgT]], Exp, ExpT),
+        defun(var(Fun), var(Arg), ArgT, Exp2, ExpT)) :-
     transform(Exp, Exp2).
-transform(defun(Var, [Arg | Args], Exp), defun(Var2, Arg2, Lambda)) :-
-    transform(Var, Var2),
-    transform(Arg, Arg2),
+transform(defun(var(Fun), [[var(Arg), ArgT] | Args], Exp, ExpT),
+        defun(var(Fun), var(Arg), ArgT, Lambda, RetT)) :-
+    defun_args_type(Args, ExpT, RetT),
     transform_lambda(Args, Exp, Lambda).
 
 % if
@@ -201,12 +211,7 @@ transform(apply(Exp, Args), Apply) :-
     transform_apply(Exp, Args2, Apply).
 
 % var
-transform(var(Name), var(Name)).
-transform(var(Name, Type), var(Name, Type2)) :-
-    transform_type(Type, Type2).
-
-% val
-transform(val(Name, Exp), val(Name, Exp)).
+transform(var(Var), var(Var)).
 
 % constants
 transform(true, true).
@@ -227,20 +232,26 @@ transform(Exp, _) :- throw(transform_error(Exp)).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % transform helper predicates
 
-transform_type(T, T).
+% defun_args_type/3
+defun_args_type([[_, T]], RetT, arrow(T, RetT)).
+defun_args_type([[_, T1] | Args], RetT, arrow(T1, T2)) :-
+    defun_args_type(Args, RetT, T2).
 
-transform_lambda([var(Name, Type)], Body, lambda(var(Name, Type), Body2)) :-
+% transform_lambda/3
+transform_lambda([[var(Var), VarT]], Body, lambda(var(Var), VarT, Body2)) :-
     transform(Body, Body2).
-transform_lambda([var(Name, Type) | Rest], Body, lambda(var(Name, Type), Lambda)) :-
+transform_lambda([[var(Var), VarT] | Rest], Body, lambda(var(Var), VarT, Lambda)) :-
     transform_lambda(Rest, Body, Lambda).
 
-transform_let([val(Name, Exp)], Body, let(var(Name), Exp2, Body2)) :-
+% transform_let/3
+transform_let([[var(Var), Exp]], Body, let(var(Var), Exp2, Body2)) :-
     transform(Exp, Exp2),
     transform(Body, Body2).
-transform_let([val(Name, Exp) | Rest], Body, let(var(Name), Exp2, Let)) :-
+transform_let([[var(Var), Exp] | Rest], Body, let(var(Var), Exp2, Let)) :-
     transform(Exp, Exp2),
     transform_let(Rest, Body, Let).
 
+% transform_apply/3
 transform_apply(Exp, [Arg], apply(Exp2, Arg2)) :-
     transform(Exp, Exp2),
     transform(Arg, Arg2).
