@@ -157,8 +157,9 @@ evaluate(apply(M, N), env(Rho, Global), Val2, Global3) :-
 evaluate(nil, env(_, Global), nil, Global).
 
 % cons
-evaluate(cons(M, N), env(Rho, Global), cons(M2, N), Global2) :-
-    evaluate(M, env(Rho, Global), M2, Global2).
+evaluate(cons(M, N), env(Rho, Global), cons(M2, N2), Global) :-
+    evaluate(M, env(Rho, Global), M2, _),
+    evaluate(N, env(Rho, Global), N2, _).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
