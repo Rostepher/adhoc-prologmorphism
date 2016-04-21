@@ -1,6 +1,7 @@
-:- module(type_checker, [init_gamma/1, type_check/3]).
+:- module(type_checker, [init_gamma/1, type_check/4]).
 
 :- use_module(quantifier).
+:- use_module(set).
 
 % disable warnings for unused variables
 :- style_check(-singleton).
@@ -23,16 +24,17 @@ judge_type(Gamma, defun(var(Fun), var(Var), VarT, Exp, ExpT), arrow(VarT, ExpT),
     extend(Gamma, Fun, arrow(VarT, ExpT), Gamma4).
 
 % if
-judge_type(Gamma, if(Cond, Then, Else), T, Gamma) :-
+% TODO: remove the need for skolemization or move it somewhere else
+judge_type(Gamma, if(Cond, Then, Else), IfT, Gamma) :-
     judge_type(Gamma, Cond, bool, _),
-    judge_type(Gamma, Then, T, _),
-    judge_type(Gamma, Else, T, _).
+    judge_type(Gamma, Then, IfT, _),
+    judge_type(Gamma, Else, IfT, _).
 
 % lambda
-judge_type(Gamma, lambda(var(Var), VarT, Body), arrow(VarT2, BodyT), Gamma) :-
+judge_type(Gamma, lambda(var(Var), VarT, Body), LambdaT, Gamma) :-
     simple_extend(Gamma, Var, VarT, Gamma2),
-    type_from_scheme(VarT, VarT2),
-    judge_type(Gamma2, Body, BodyT, _).
+    judge_type(Gamma2, Body, BodyT, _),
+    LambdaT = arrow(VarT, BodyT).
 
 % let
 judge_type(Gamma, let(var(Var), Exp, Body), BodyT, Gamma) :-
@@ -41,12 +43,12 @@ judge_type(Gamma, let(var(Var), Exp, Body), BodyT, Gamma) :-
     judge_type(Gamma2, Body, BodyT, _).
 
 % apply
-judge_type(Gamma, apply(Exp, Arg), T, Gamma) :-
+judge_type(Gamma, apply(Exp, Arg), ExpT, Gamma) :-
     judge_type(Gamma, Arg, ArgT, _),
-    judge_type(Gamma, Exp, arrow(ArgT, T), _).
+    judge_type(Gamma, Exp, arrow(ArgT, ExpT), _).
 
 % nil
-judge_type(Gamma, nil, list(T), Gamma).
+judge_type(Gamma, nil, list(_T), Gamma).
 
 % lists
 judge_type(Gamma, cons(Head, Tail), list(T), Gamma3) :-
@@ -68,29 +70,34 @@ judge_type(Gamma, Exp, _, _) :-
 
 
 % convienience predicates
-type_check(Gamma, [Prog], Gamma2) :-
+type_check(Gamma, [Prog], [T], Gamma2) :-
     quantify_types([], Prog, Prog2),
-    judge_type(Gamma, Prog2, _, Gamma2).
+    judge_type(Gamma, Prog2, T, Gamma2).
 
-type_check(Gamma, [Prog | Rest], Gamma3) :-
-    judge_type(Gamma, Prog, _, Gamma2),
-    type_check(Gamma2, Rest, Gamma3).
+type_check(Gamma, [Prog | Rest], [T | Ts], Gamma3) :-
+    judge_type(Gamma, Prog, T, Gamma2),
+    type_check(Gamma2, Rest, Ts, Gamma3).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % type environment
 
 % simple_extend/4
-simple_extend(Gamma, Var, T, [[Var, ST] | Gamma]) :-
-    skolemize(T, ST).
+% simple_extend(Gamma, Var, T, [[Var, ST] | Gamma]) :-
+%     skolemize(T, ST).
+simple_extend(Gamma, Var, T, [[Var, forall([], T)] | Gamma]).
 
 
 % extend/4
-extend(Gamma, Var, T, [[Var, forall(STVs2, ST)] | Gamma]) :-
-    skolemize(T, forall(STVs, ST)),
-    free_env_vars(Gamma, GVs),
-    free_type_vars(ST, FreeTVs),
-    subtract(FreeTVs, GVs, STVs2).
+% extend(Gamma, Var, T, [[Var, forall(STVs2, ST)] | Gamma]) :-
+%     skolemize(T, forall(STVs, ST)),
+%     free_env_vars(Gamma, GVs),
+%     free_type_vars(ST, FreeTVs),
+%     set:subtract(FreeTVs, GVs, STVs2).
+extend(Gamma, Var, T, [[Var, forall(TVs, T)] | Gamma]) :-
+    free_env_vars(Gamma, GammaTVs),
+    free_type_vars(T, FreeTVs),
+    set:subtract(FreeTVs, GammaTVs, TVs).
 
 
 % lookup/3
@@ -101,10 +108,13 @@ lookup(X, [_ | Tail], Type) :-
 
 
 % type_from_scheme/2
-type_from_scheme(forall(TVs, T), T2) :-
-    skolemize(forall(TVs, T), forall(STVs, ST)),
-    fresh_vars(STVs, FreshTVs),
-    replace(ST, STVs, FreshTVs, T2).
+% type_from_scheme(forall(TVs, T), FreshT) :-
+%     skolemize(forall(TVs, T), forall(STVs, ST)),
+%     fresh_vars(STVs, FreshTVs),
+%     replace(ST, STVs, FreshTVs, FreshT).
+type_from_scheme(forall(TVs, T), FreshT) :-
+    fresh_vars(TVs, FreshTVs),
+    replace(T, TVs, FreshTVS, FreshT).
 
 
 % fresh_vars
@@ -137,14 +147,14 @@ free_env_vars([], []).
 free_env_vars([[X, S] | G], U) :-
     free_scheme_vars(S, SVs),
     free_env_vars(G, GVs),
-    union(SVs, GVs, U).
+    set:union(SVs, GVs, U).
 
 
 % free_type_vars/2
-free_type_vars(T, [T]) :- var(T), !.
-free_type_vars(bool, []).
+free_type_vars(T,     [T]) :- var(T), !.
+free_type_vars(bool,  []).
 free_type_vars(float, []).
-free_type_vars(int, []).
+free_type_vars(int,   []).
 
 free_type_vars(list(T), TVs) :-
     free_type_vars(T, TVs).
@@ -152,14 +162,26 @@ free_type_vars(list(T), TVs) :-
 free_type_vars(arrow(T1, T2), TVs) :-
     free_type_vars(T1, T1Vs),
     free_type_vars(T2, T2Vs),
-    union(T1Vs, T2Vs, TVs).
+    set:union(T1Vs, T2Vs, TVs).
 
 
 % free_scheme_vars/2
 free_scheme_vars(forall(Vs, T), SVs) :-
     free_type_vars(T, TVs),
-    subtract(TVs, Vs, SVs).
+    set:subtract(TVs, Vs, SVs).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% compare_types/3
+
+% compare_types(T1, T2, ST) :-
+%     skolemize(T1, ST1),
+%     skolemize(T2, ST2),
+%     compare_scheme(ST1, ST2).
+
+% compare_scheme(Scheme1, Scheme2) :-
+%     type_from_scheme(Scheme1, T),
+%     type_from_scheme(Scheme2, T).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % skolemize/2 skolemizes a type scheme by moving all universal quantifiers to
@@ -174,11 +196,11 @@ skolemize(list(T), forall([], list(T))).
 skolemize(arrow(T1, T2), forall(TVs, arrow(T1_2, T2_2))) :-
     skolemize(T1, forall(T1Vs, T1_2)),
     skolemize(T2, forall(T2Vs, T2_2)),
-    union(T1Vs, T2Vs, TVs).
+    set:union(T1Vs, T2Vs, TVs).
 
 skolemize(forall(TVs, T), forall(TVs3, T2)) :-
     skolemize(T, forall(TVs2, T2)),
-    union(TVs, TVs2, TVs3).
+    set:union(TVs, TVs2, TVs3).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

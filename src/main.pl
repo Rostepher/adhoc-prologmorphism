@@ -64,13 +64,14 @@ rep(Gamma1, Global1, Gamma2, Global2) :-
     parser:parse(Tokens, Ast), !,
 
     % type check
-    type_checker:type_check(Gamma1, Ast, Gamma2), !,
+    type_checker:type_check(Gamma1, Ast, [Type | _], Gamma2), !,
 
     % evaluate
-    interpreter:eval(Ast, env([], Global1), Val, Global2), !,
+    interpreter:eval(Ast, env([], Global1), [Val | _], Global2), !,
 
     % print
-    write_term(Val, [attributes(write), nl(true)]).
+    write_term(Type, [attributes(write), nl(true)]),
+    write_term(Val,  [attributes(write), nl(true)]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
