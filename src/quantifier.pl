@@ -1,5 +1,7 @@
 :- module(quantifier, [quantify_types/3]).
 
+:- use_module(set).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % quantify_types/3 traverses the AST and quantifies all types, transforming
@@ -80,8 +82,8 @@ type_to_scheme(TVs, list(Type), forall(TVs2, list(Type2)), TVs) :-
 type_to_scheme(TVs, arrow(Type1, Type2), forall(UTVs, arrow(T1, T2)), TVs4) :-
     type_to_scheme(TVs,  Type1, forall(T1_Vs, T1), TVs2),
     type_to_scheme(TVs2, Type2, forall(T2_Vs, T2), TVs3),
-    union(T1_Vs, T2_Vs, UTVs),
-    union(TVs2, TVs3, TVs4).
+    set:union(T1_Vs, T2_Vs, UTVs),
+    set:union(TVs2, TVs3, TVs4).
 
 type_to_scheme(TVs, T, forall([], Var), TVs) :-
     atom(T),
