@@ -1,4 +1,4 @@
-\documentclass[10pt,a4paper,fleqn]{article}
+\documentclass[11pt,a4paper]{article}
 
 % imports
 \usepackage[utf8]{inputenc}
@@ -11,9 +11,12 @@
 \usepackage{amssymb}  % number sets
 \usepackage{syntax}   % (E)BNF
 
+\usepackage{geometry}
+\geometry{letterpaper,portrait,margin=1in}
+
 % (E)BNF
-\usepackage{backnaur}
-\renewcommand{\bnfpo}{::=}
+% \usepackage{backnaur}
+% \renewcommand{\bnfpo}{::=}
 
 % judgements
 \usepackage{semantic}
@@ -24,9 +27,9 @@
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Title & TOC
+% Title
 
-\title{The \textit{adhoc} Language}
+\title{The \textit{Adhoc} Language}
 \author{Ross Bayer}
 \date{\today}
 
@@ -35,26 +38,19 @@
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Abstract
-
-\section*{Abstract}
-
-This report defines the syntax, typing and semtics for the small programming
-language \textit{adhoc}.
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Introduction
 
 \section{Introduction}
 
-Adhoc polymorphism is ...
+\textit{Adhoc} is a small, functional programming language developed to study
+adhoc polymorphism in Hindley-Milner type systems. The language is small and
+was not developed as a general-purpose language. As such, it lacks many features
+expected in a modern languge and should not be used non-trivial programs. Adhoc
+is a funcitonal language that provides higher-order functions, recursive
+functions, strong typing, parametric polymorphism and adhoc polymorphism.
 
-The language \textit{adhoc} is a small, functional programming language that ...
-
-Do not use it for non-trivial programs, as the language is not intended as a
-general-purpose language, but rather as a proof-of-concept and learning
-project.
+This report defines the syntax and semantics of the Adhoc language. The
+implementation details of adhoc polymorphism are explained in detail.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -62,56 +58,48 @@ project.
 
 \section{Lexical Structure}
 
-The lexical structure of the language \textbf{adhoc} is simple. The only
-valid characters are those representable in ASCII. Identifiers can contain
-a mixture of special character and alpha-numeric. The lexical specification
-is denoted using EBNF form.
+The lexical structure of Adhoc are simple. The only valid characters in the
+language are those representable in ASCII. Identifiers can contain a mixture of
+special character and alpha-numeric. The lexical specification is denoted using
+EBNF form.
 
 % float styling
 \floatstyle{boxed}
 \restylefloat{figure}
 
 \begin{figure}[H]
+\small
 \renewcommand{\grammarlabel}[2]{\synt{#1}\hfill#2}
 \setlength{\grammarindent}{8em}
 \begin{grammar}
-<digit> ::= 0 | 1 | ... | 9
+<digit> ::= "0" ... "9"
 
 <digits> ::= <digit>+
 
-<int> ::= '-'? <digits>
+<int> ::= "-"? <digits>
 
-<float> ::= '-'? <digits> ('.' <digits>)?
+<float> ::= "-"? <digits> ("." <digits>)?
 
-<alpha> ::= a | b | ... | z | A | B | ... | Z
+<alpha> ::= "a" ... "z" | "A" ... "Z"
+
+<special> ::= "!" | "\$" | "\&" | "+" | "-" | "*" | "/" | ":" | "<" | "=" | ">" | "?"| "~" | "_" | "^"
 
 <initial> ::= <alpha> | <special>
 
-<subsequent> ::= <alpha> | <digit> | <special> | '.'
+<subsequent> ::= <alpha> | <digit> | <special> | "."
 
 <ident> ::= <initial> <subsequent>+
 
-<keywork> ::= 'defun'
-    \alt 'defvar'
-    \alt 'if'
-    \alt 'lambda'
-    \alt 'let'
-    \alt 'true'
-    \alt 'false'
-
+<keywork> ::= "defun"
+    \alt "defvar"
+    \alt "if"
+    % \alt "inst"
+    \alt "lambda"
+    \alt "let"
+    % \alt "over"
+    \alt "true"
+    \alt "false"
 \end{grammar}
-\end{figure}
-
-\begin{figure}[H]
-    \begin{bnf*}
-        \bnfprod{list}
-                {\bnfpn{listitems} \bnfor \bnfes} \\
-        \bnfprod{listitems}
-                {\bnfpn{item} \bnfor \bnfpn{items}
-                 \bnfsp \bnfts{;} \bnfsp \bnfpn{listitems}} \\
-        \bnfprod{item}
-                {\bnftd{description of item}}
-    \end{bnf*}
 \end{figure}
 
 
@@ -129,6 +117,7 @@ and operational semantics below.
 
 % grammar
 \begin{figure}[H]
+\small
 \setlength{\grammarindent}{8em}
 \renewcommand{\grammarlabel}[2]{\synt{#1}\hfill#2}
 \begin{grammar}
@@ -136,134 +125,195 @@ and operational semantics below.
 
 <form> ::= <definition>
     \alt <expression>
+    % \alt <overload>
+    % \alt <instance>
 
-<definition> ::= '(' 'defun' <ident> ':' <type> <expression> ')'
-    \alt '(' 'defvar' <ident> <expression> ')'
+<definition> ::= "(" "defun" "(" <ident> <formals> ":" <type> ")" <expression> ")"
+    \alt "(" "defvar" <ident> <expression> ")"
+
+% <overload> ::= "(" "over" <ident> ")"
+
+% <instance> ::= "(" "inst" "(" <ident> ":" <type> ")" <expression> ")"
 
 <expression> ::= <constant>
     \alt <ident>
-    \alt '(' 'if' <expression> <expression> <expression> ')'
-    \alt '(' 'lambda' <formals> <expression> ')'
-    \alt '(' 'let' <bindings> <expression> ')'
+    \alt "(" "if" <expression> <expression> <expression> ")"
+    \alt "(" "lambda" <formals> <expression> ")"
+    \alt "(" "let" <bindings> <expression> ")"
     \alt <application>
-    \alt '(' <expression> ')'
+    \alt "(" <expression> ")"
 
-<variable> ::= <ident> ':' <type>
-
-<type> ::= '(' <type> ')'
+<type> ::= "(" <type> ")"
     \alt <ident>
-    \alt '(' <ident> ')'
-    \alt <ident> '->' <type>
+    \alt "(" <ident> ")"
+    \alt <ident> "->" <type>
 
-<formal> ::= '(' <variable>+ ')'
+<variable> ::= <ident> ":" <type>
+
+<formal> ::= "(" <variable> ")"
+
+<formals> ::= "(" <variable>+ ")"
 
 <value> ::= <ident> <expression>
 
-<bindings> ::= '(' <value>+ ')'
+<binding> ::= "(" <value> ")"
 
-<application> ::= '(' <expression> <expression>+ ')'
+<bindings> ::= "(" <binding>+ ")"
+
+<application> ::= "(" <expression> <expression>+ ")"
 \end{grammar}
 \end{figure}
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Type Judgements
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Translation
+
+\section{Translation}
+
+TODO
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Type System
 
 \section{Type Judgements}
 
-The language features strong typing with the following built-in types:
+Adhoc features a Hindley-Milner type system with parametric polymorphism.
+Monotypes $\tau$ designate a concrete type, such as \verb|bool|, \verb|float|,
+\verb|int| and also parametric types, such as \verb|list| and $\rightarrow$.
+Polytypes, also called type schemes, allow for universal quantification over
+a type variable $\alpha$ in another polytype or monotype.
+
+% \begin{figure}[H]
+% \centering
+% \caption{Variables}
+% \label{fig:vars}
+% % \renewcommand{\arraystretch}{1.5}
+% \begin{tabular}{l l}
+%     Unique variables        & $u \in \mathcal{U}$ \\
+%     Overloaded variables    & $o \in \mathcal{O}$ \\
+%     Variables               & $x = u$ \| $o$         \\
+
+%     Type variables          & $\alpha \in \mathcal{A}$ \\
+%     Type constructors       & $T \in \mathcal{T}$   \\
+%     Type schemes            & $\tau = \alpha$ | $\forall \alpha . \pi_\alpha \Rightarrow \sigma$ \\
+%     Constraints on $\alpha$ & $\pi_\alpha = o_1 : \alpha \rightarrow \tau_1$, \dots, $o_n : \alpha \rightarrow \tau_n$ \\
+%     Typotheses              & $\Gamma = x_1 : \sigma_1, \dots, x_n : \sigma_n$ \\
+% \end{tabular}
+% \end{figure}
 
 % float styling
 \floatstyle{boxed}
 \restylefloat{figure}
+
 \begin{figure}[H]
-\setlength{\grammarindent}{5em}
+\small
+\setlength{\grammarindent}{10em}
 \begin{grammar}
-<type> ::= int
-       \alt float
-       \alt bool
-       \alt list $t$
-       \alt $t_1 \rightarrow t_2$
+<monotype $\tau$> = "bool"
+    \alt "float"
+    \alt "int"
+    \alt "list" $\tau$
+    \alt $\tau_1 \rightarrow \tau_2$
+
+<polytype $\sigma$> = $\tau$
+    \alt $\forall$ $\alpha$ . $\sigma$
 \end{grammar}
 \end{figure}
 
-Below are the type judgements used to infer and validate the types of
-expressions in the language.
+Literals in the lanugage have their types inferred using the following
+judgements.
 
-% bool literals
+\begin{figure}[H]
+\centering
+% literals
 \[
-    \inference{}{\Gamma |- \<true> : bool}
+    % bool
+    \inference[(BOOL) ]{}{\Gamma |- \<true> : bool}
     \hspace{1em}
-    \inference{}{\Gamma |- \<false> : bool}
+    \inference{}{\Gamma |- \<false> : bool}[(BOOL)]
 \]
-
-% int and float
 \[
-    \inference{n \in \mathbb{Z}}{\Gamma |- n : int}
+    % int
+    \inference[(INT)]{n \in \mathbb{Z}}{\Gamma |- n : int}
     \hspace{1em}
-    \inference{n \in \mathbb{R}}{\Gamma |- n : float}
+    % float
+    \inference{n \in \mathbb{R}}{\Gamma |- n : float}[(FLOAT)]
+\]
+\[
+    % nil
+    \inference[(NIL)]{}{\Gamma |- \<nil> : list_\tau}
+    \hspace{1em}
+    % cons
+    \inference
+        {
+            \Gamma |- M : \tau \\
+            \Gamma |- N : \tau
+        }
+        {\Gamma |- \<cons>(M, N) : list_\tau}
+        [(LIST)]
+\]
+\end{figure}
+
+Definitions and expressions in the lanague have their types inferred using the
+following judgements.
+
+\begin{figure}[H]
+\centering
+\small
+\[
+    % variable
+    \inference[(TAUT)]{}{\Gamma |- x : \sigma}
+    \hspace{2em}
+    % if
+    \inference
+        {
+            \Gamma |- M_1 : bool \\
+            \Gamma |- M_2 : \sigma \\
+            \Gamma |- M_3 : \sigma
+        }
+        {\Gamma |- \<if>(M_1, M_2, M_3) : \sigma}[(IF)]
 \]
 
-% variable
-\[\inference{x : \tau \in \Gamma}{\Gamma |- x : \tau}\]
-
-% if
-\[\inference
-	{
-    	\Gamma |- M_1 : bool \\
-    	\Gamma |- M_2 : \tau \\
-        \Gamma |- M_3 : \tau
-    }
-    {\Gamma |- \<if>(M_1, M_2, M_3) : \tau}
+\[
+    % let
+    \inference[(LET)]
+        {
+            \Gamma |- M : \tau \\
+            \Gamma, M : \tau |- N : \tau'
+        }
+        {\Gamma |- \<let>(x, M, N) : \tau'}
+    \hspace{2em}
+    % lambda
+    \inference
+        {\Gamma, x : \tau |- M : \tau'}
+        {\Gamma |- \<lambda>(x, \tau, N) : \tau'}
+        [(LAMBDA)]
 \]
 
-% let
-\[\inference
-	{
-	    \Gamma |- M : \tau \\
-	    \Gamma, M : \tau |- N : \tau'
-	}
-    {\Gamma |- \<let>(x, M, N) : \tau'}
+\[
+    % defun
+    \inference[(DEFUN)]
+        {\Gamma, x : \sigma, M : \tau' |- f : \tau -> \tau'}
+        {\Gamma |- \<defun>(f, x, \tau, M, \tau') : \tau -> \tau'}
+    \hspace{2em}
+    % defvar
+    \inference
+        {\Gamma |- M : \tau}
+        {\Gamma |- \<defvar>(x, M) : \tau}
+        [(DEFVAR)]
 \]
 
-% lambda
-\[\inference
-    {\Gamma, x : \tau |- M : \tau'}
-    {\Gamma |- \<lambda>(x, \tau, N) : \tau'}
+\[
+    % apply
+    \inference[(APPLY)]
+        {
+            \Gamma |- N : \tau \\
+            \Gamma |- M : \tau -> \tau'
+        }
+        {\Gamma |- \<apply>(M, N) : \tau'}
 \]
-
-% define
-\[\inference
-    {\Gamma, x : \tau, M : \tau' |- f : \tau -> \tau'}
-    {\Gamma |- \<defun>(f, x, \tau, M, \tau') : \tau -> \tau'}
-\]
-
-% const
-\[\inference
-    {\Gamma |- M : \tau}
-    {\Gamma |- \<defvar>(x, M) : \tau}
-\]
-
-% call
-\[\inference
-    {
-        \Gamma |- N : \tau \\
-        \Gamma |- M : \tau -> \tau'
-    }
-    {\Gamma |- \<apply>(M, N) : \tau'}
-\]
-
-% nil
-\[\inference{}{\Gamma |- \<nil> : list_\tau}\]
-
-% cons
-\[\inference
-    {
-        \Gamma |- M : \tau \\
-        \Gamma |- N : \tau
-    }
-    {\Gamma |- \<cons>(M, N) : list_\tau}
-\]
+\end{figure}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -366,6 +416,7 @@ follows:
     {(\<cons>(M, N), \rho, G) \Downarrow (\<cons>(v', v''), G)}
 \]
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Extensions for Adhoc-Polymorphism
 
@@ -373,12 +424,5 @@ follows:
 
 TODO
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Standard Library
-
-\section{Standard Library}
-
-TODO
 
 \end{document}
