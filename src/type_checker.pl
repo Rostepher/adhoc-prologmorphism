@@ -83,21 +83,21 @@ type_check(Gamma, [Prog | Rest], [T | Ts], Gamma3) :-
 % type environment
 
 % simple_extend/4
-% simple_extend(Gamma, Var, T, [[Var, ST] | Gamma]) :-
-%     skolemize(T, ST).
-simple_extend(Gamma, Var, T, [[Var, forall([], T)] | Gamma]).
+simple_extend(Gamma, Var, T, [[Var, ST] | Gamma]) :-
+    skolemize(T, ST).
+% simple_extend(Gamma, Var, T, [[Var, forall([], T)] | Gamma]).
 
 
 % extend/4
-% extend(Gamma, Var, T, [[Var, forall(STVs2, ST)] | Gamma]) :-
-%     skolemize(T, forall(STVs, ST)),
-%     free_env_vars(Gamma, GVs),
-%     free_type_vars(ST, FreeTVs),
-%     set:subtract(FreeTVs, GVs, STVs2).
-extend(Gamma, Var, T, [[Var, forall(TVs, T)] | Gamma]) :-
-    free_env_vars(Gamma, GammaTVs),
-    free_type_vars(T, FreeTVs),
-    set:subtract(FreeTVs, GammaTVs, TVs).
+extend(Gamma, Var, T, [[Var, forall(STVs2, ST)] | Gamma]) :-
+    skolemize(T, forall(STVs, ST)),
+    free_env_vars(Gamma, GVs),
+    free_type_vars(ST, FreeTVs),
+    set:subtract(FreeTVs, GVs, STVs2).
+% extend(Gamma, Var, T, [[Var, forall(TVs, T)] | Gamma]) :-
+%     free_env_vars(Gamma, GammaTVs),
+%     free_type_vars(T, FreeTVs),
+%     set:subtract(FreeTVs, GammaTVs, TVs).
 
 
 % lookup/3
@@ -108,13 +108,13 @@ lookup(X, [_ | Tail], Type) :-
 
 
 % type_from_scheme/2
-% type_from_scheme(forall(TVs, T), FreshT) :-
-%     skolemize(forall(TVs, T), forall(STVs, ST)),
-%     fresh_vars(STVs, FreshTVs),
-%     replace(ST, STVs, FreshTVs, FreshT).
 type_from_scheme(forall(TVs, T), FreshT) :-
-    fresh_vars(TVs, FreshTVs),
-    replace(T, TVs, FreshTVS, FreshT).
+    skolemize(forall(TVs, T), forall(STVs, ST)),
+    fresh_vars(STVs, FreshTVs),
+    replace(ST, STVs, FreshTVs, FreshT).
+% type_from_scheme(forall(TVs, T), FreshT) :-
+%     fresh_vars(TVs, FreshTVs),
+%     replace(T, TVs, FreshTVS, FreshT).
 
 
 % fresh_vars

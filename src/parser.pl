@@ -33,14 +33,16 @@ parse(Tokens, Ast) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % programs
 
-program([Form|Forms]) -->
+program([Form | Forms]) -->
     form(Form),
     !,
     program(Forms).
 program([]) --> [].
 
-form(Node) --> definition(Node).
-form(Node) --> expression(Node).
+form(Def)  --> definition(Def).
+form(Over) --> overload(Over).
+form(Inst) --> instance(Inst).
+form(Exp)  --> expression(Exp).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -61,6 +63,18 @@ definition(defun(var(Fun), Args, Exp, ExpT)) -->
     [colon],
     type(ExpT),
     [rparen],
+    expression(Exp),
+    [rparen].
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% overloading
+
+overload(over(var(Op))) --> [lparen, over, ident(Op), rparen].
+
+instance(inst(var(Op), Type, Exp)) -->
+    [lparen, inst],
+    parens(variable([var(Op), Type])),
     expression(Exp),
     [rparen].
 
@@ -116,6 +130,11 @@ type(T)             --> [ident(T)].
 type(list(T))       --> brackets([ident(T)]).
 type(arrow(T1, T2)) --> parens(type(T1)), [arrow], type(T2).
 type(arrow(T1, T2)) --> [ident(T1), arrow], type(T2).
+
+constraint([Con]) -->
+    [lparen, ident(Op), colon],
+    type(OpT),
+    [rparen].
 
 variables([Var]) --> parens(variable(Var)).
 variables([Var | Vars]) -->
@@ -190,6 +209,13 @@ transform(defun(var(Fun), [[var(Arg), ArgT] | Args], Exp, ExpT),
         defun(var(Fun), var(Arg), ArgT, Lambda, RetT)) :-
     defun_args_type(Args, ExpT, RetT),
     transform_lambda(Args, Exp, Lambda).
+
+% overload
+transform(over(var(Op)), over(var(Op))).
+
+% instance
+transform(inst(var(Op), Type, Exp), inst(var(Op), Type, Exp2)) :-
+    transform(Exp, Exp2).
 
 % if
 transform(if(Cond, Then, Else), if(Cond2, Then2, Else2)) :-

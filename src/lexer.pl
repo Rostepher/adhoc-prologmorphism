@@ -28,6 +28,10 @@ is_keyword(Codes) :- memberchk(Codes, [
     "lambda",
     "let",
 
+    % overloading
+    "over",
+    "inst",
+
     % literals
     "true",
     "false"

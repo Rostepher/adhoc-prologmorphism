@@ -23,6 +23,14 @@ quantify_types(TVs, defun(var(Fun), var(Arg), ArgT, Exp, ExpT),
     type_to_scheme(TVs2, ExpT, ExpT2, _),
     quantify_types(TVs2, Exp, Exp2).
 
+% over
+quantify_types(_, over(var(Op)), over(var(Op))).
+
+% inst
+quantify_types(TVs, inst(var(Op), OpT, Exp), inst(var(Op), OpT2, Exp2)) :-
+    type_to_scheme(TVs, OpT, OpT2, _),
+    quantify_types(TVs, Exp, Exp2).
+
 % if
 quantify_types(TVs, if(Cond, Then, Else), if(Cond2, Then2, Else2)) :-
     quantify_types(TVs, Cond, Cond2),
