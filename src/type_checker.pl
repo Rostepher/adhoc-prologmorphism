@@ -24,7 +24,6 @@ judge_type(Gamma, defun(var(Fun), var(Var), VarT, Exp, ExpT), arrow(VarT, ExpT),
     extend(Gamma, Fun, arrow(VarT, ExpT), Gamma4).
 
 % if
-% TODO: remove the need for skolemization or move it somewhere else
 judge_type(Gamma, if(Cond, Then, Else), IfT, Gamma) :-
     judge_type(Gamma, Cond, bool, _),
     judge_type(Gamma, Then, IfT, _),
@@ -37,15 +36,17 @@ judge_type(Gamma, lambda(var(Var), VarT, Body), LambdaT, Gamma) :-
     LambdaT = arrow(VarT, BodyT).
 
 % let
-judge_type(Gamma, let(var(Var), Exp, Body), BodyT, Gamma) :-
+judge_type(Gamma, let(var(Var), Exp, Body), LetT, Gamma) :-
     judge_type(Gamma, Exp, ExpT, _),
     extend(Gamma, Var, ExpT, Gamma2),
-    judge_type(Gamma2, Body, BodyT, _).
+    judge_type(Gamma2, Body, BodyT, _),
+    LetT = BodyT.
 
 % apply
-judge_type(Gamma, apply(Exp, Arg), ExpT, Gamma) :-
+judge_type(Gamma, apply(Exp, Arg), ApplyT, Gamma) :-
     judge_type(Gamma, Arg, ArgT, _),
-    judge_type(Gamma, Exp, arrow(ArgT, ExpT), _).
+    judge_type(Gamma, Exp, arrow(ArgT, ExpT), _),
+    ApplyT = ExpT.
 
 % nil
 judge_type(Gamma, nil, list(_T), Gamma).
@@ -172,18 +173,6 @@ free_scheme_vars(forall(Vs, T), SVs) :-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% compare_types/3
-
-% compare_types(T1, T2, ST) :-
-%     skolemize(T1, ST1),
-%     skolemize(T2, ST2),
-%     compare_scheme(ST1, ST2).
-
-% compare_scheme(Scheme1, Scheme2) :-
-%     type_from_scheme(Scheme1, T),
-%     type_from_scheme(Scheme2, T).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % skolemize/2 skolemizes a type scheme by moving all universal quantifiers to
 % the front of the type.
 
@@ -201,6 +190,32 @@ skolemize(arrow(T1, T2), forall(TVs, arrow(T1_2, T2_2))) :-
 skolemize(forall(TVs, T), forall(TVs3, T2)) :-
     skolemize(T, forall(TVs2, T2)),
     set:union(TVs, TVs2, TVs3).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% remove_empty_scheme/2 removes the forall quantifier if the type variables are
+% empty.
+
+remove_empty_scheme(forall([], T), T).
+remove_empty_scheme(forall(TVs, T), forall(TVs, T)).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% simplify_type/2 first skolemizes an input type and then removes the forall
+% quantifier if it is empty.
+
+simplify_type(T, T2) :-
+    skolemize(T, ST),
+    remove_empty_scheme(ST, T2).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% unify_types/3 unifies two types by simplifying each and then unifying their
+% simplified forms.
+
+unify_types(T1, T2, UT) :-
+    simplify_type(T1, UT),
+    simplify_type(T2, UT).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -223,9 +238,6 @@ init_gamma([
     ['-.', forall([], arrow(float, arrow(float, float)))],
     ['*.', forall([], arrow(float, arrow(float, float)))],
     ['/.', forall([], arrow(float, arrow(float, float)))],
-
-    % bool
-    ['not', forall([], arrow(bool, bool))],
 
     % list
     ['nil?', forall([Tn], arrow(list(Tn), bool))],

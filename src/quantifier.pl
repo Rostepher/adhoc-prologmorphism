@@ -18,17 +18,20 @@ quantify_types(TVs, defvar(var(Var), Exp), defvar(var(Var), Exp2)) :-
 
 % defun
 quantify_types(TVs, defun(var(Fun), var(Arg), ArgT, Exp, ExpT),
-        defun(var(Fun), var(Arg), ArgT2, Exp2, ExpT2)) :-
+        defun(var(Fun), var(Arg), ArgT3, Exp2, ExpT3)) :-
     type_to_scheme(TVs,  ArgT, ArgT2, TVs2),
     type_to_scheme(TVs2, ExpT, ExpT2, _),
+    remove_empty_scheme(ArgT2, ArgT3),
+    remove_empty_scheme(ExpT2, ExpT3),
     quantify_types(TVs2, Exp, Exp2).
 
 % over
 quantify_types(_, over(var(Op)), over(var(Op))).
 
 % inst
-quantify_types(TVs, inst(var(Op), OpT, Exp), inst(var(Op), OpT2, Exp2)) :-
+quantify_types(TVs, inst(var(Op), OpT, Exp), inst(var(Op), OpT3, Exp2)) :-
     type_to_scheme(TVs, OpT, OpT2, _),
+    remove_empty_scheme(OpT2, OpT3),
     quantify_types(TVs, Exp, Exp2).
 
 % if
@@ -39,8 +42,9 @@ quantify_types(TVs, if(Cond, Then, Else), if(Cond2, Then2, Else2)) :-
 
 % lambda
 quantify_types(TVs, lambda(var(Var), VarT, Body),
-        lambda(var(Var), VarT2, Body2)) :-
+        lambda(var(Var), VarT3, Body2)) :-
     type_to_scheme(TVs, VarT, VarT2, TVs2),
+    remove_empty_scheme(VarT2, VarT3),
     quantify_types(TVs2, Body, Body2).
 
 % let
@@ -100,6 +104,14 @@ type_to_scheme(TVs, T, forall([Var], Var), TVs2) :-
     atom(T),
     var(Var),
     extend(TVs, T, Var, TVs2).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% remove_empty_scheme/2 removes the forall quantifier if there are no type
+% variables.
+
+remove_empty_scheme(forall([], T), T).
+remove_empty_scheme(forall(TVs, T), forall(TVs, T)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
