@@ -131,10 +131,10 @@ type(list(T))       --> brackets([ident(T)]).
 type(arrow(T1, T2)) --> parens(type(T1)), [arrow], type(T2).
 type(arrow(T1, T2)) --> [ident(T1), arrow], type(T2).
 
-constraint([Con]) -->
-    [lparen, ident(Op), colon],
-    type(OpT),
-    [rparen].
+% constraint([Con]) -->
+%     [lparen, ident(Op), colon],
+%     type(OpT),
+%     [rparen].
 
 variables([Var]) --> parens(variable(Var)).
 variables([Var | Vars]) -->

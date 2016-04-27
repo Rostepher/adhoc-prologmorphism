@@ -4,45 +4,68 @@
 :- use_module(parser).
 :- use_module(type_checker).
 :- use_module(interpreter).
+:- use_module(pretty_printer).
+
+:- use_module(library(readutil)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% write_error/1 writes an error message for custom error predicates that can
-% be thrown in repl/0.
+% zip_results/3
 
-% lexer_error
-write_error(lexer_error(Char)) :-
-    format('A lexer error occurred with character: "~w"~n', [Char]).
+zip_results([], _, []).
+zip_results(_, [], []).
+zip_results([Val | Vals], [Type | Types], [result(Val, Type) | Results]) :-
+    zip_results(Vals, Types, Results).
 
-% parser_error
-write_error(parser_error(Token)) :-
-    format('A parser error occurred with token: "~w"~n', [Token]).
 
-% transform_error
-write_error(transform_error(Exp)) :-
-    format('A transformation error occurred with expression: "~w"~n', [Exp]).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% interpret_codes/5
 
-% type_error
-write_error(type_error(Exp, Gamma)) :-
-    format('A type error occurred with expression: "~w"~n', [Exp]),
-    format('    gamma: ~w~n', [Gamma]).
+interpret_codes(Codes, Gamma, Global, Gamma2, Global2) :-
+    % tokenize
+    lexer:tokenize(Codes, Tokens), !,
 
-% runtime_error
-write_error(runtime_error(Exp, env(Rho, Global))) :-
-    format('A runtime error occurred with expression: "~w"~n', [Exp]),
-    format('    local env:  ~w~n', [Rho]),
-    format('    global env: ~w~n', [Global]).
+    % parse the tokens into the ast
+    parser:parse(Tokens, Ast), !,
 
-% other error
-write_error(Err) :-
-    format('An unknown error occurred: ~w~n', [Err]).
+    % type check the ast
+    type_checker:type_check(Gamma, Ast, Types, Gamma2), !,
 
+    % evaluate the ast
+    interpreter:eval(Ast, env([], Global), Vals, Global2), !,
+
+    % print the results
+    zip_results(Vals, Types, Results),
+    print_results(Results).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% interpret_file/5
+
+interpret_file(File, Gamma, Global, Gamma2, Global2) :-
+    read_file_to_codes(File, Codes, []),
+    catch(interpret_codes(Codes, Gamma, Global, Gamma2, Global2),
+        Error,
+        (print_error(Error),
+            copy_term(Gamma, Gamma2),
+            copy_term(Global, Global2))).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% interpret_files/5
+
+interpret_files([], Gamma, Global, Gamma, Global).
+interpret_files([F | Fs], Gamma, Global, Gamma3, Global3) :-
+    interpret_file(F, Gamma, Global, Gamma2, Global2),
+    interpret_files(Fs, Gamma2, Global2, Gamma3, Global3).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % read_prompt/2 is a helper predicate to wirte a prompt to stdout and then
 % read user input.
-% read_prompt(Msg, Input) :-
-%     % prompt(_, ''),
-%     write(Msg),
-%     read_line_to_codes(user_input, Input).
+read_prompt(Msg, Input) :-
+    prompt(_, Msg),
+    read_line_to_codes(user_input, Input).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -50,46 +73,78 @@ write_error(Err) :-
 % a program from the user, then type checks and evaluates the program, printing
 % the final result to stdout.
 
-rep(Gamma1, Global1, Gamma2, Global2) :-
+rep(Gamma, Global, Gamma2, Global2) :-
     % read
-    read_line_to_codes(user_input, Input),
+    read_prompt('> ', Codes),
 
     % Ctl-D (a.k.a. end_of_file)
-    (Input == end_of_file -> halt; true),
+    (Codes == end_of_file -> halt; true),
 
-    % tokenzie
-    lexer:tokenize(Input, Tokens), !,
-
-    % parse
-    parser:parse(Tokens, Ast), !,
-
-    % type check
-    type_checker:type_check(Gamma1, Ast, [Type | _], Gamma2), !,
-
-    % evaluate
-    interpreter:eval(Ast, env([], Global1), [Val | _], Global2), !,
-
-    % print
-    write_term(Type, [attributes(write), nl(true)]),
-    write_term(Val,  [attributes(write), nl(true)]).
+    catch(interpret_codes(Codes, Gamma, Global, Gamma2, Global2),
+        Error,
+        (print_error(Error),
+            copy_term(Gamma, Gamma2),
+            copy_term(Global, Global2))).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % repl/2 is the loop enclosing rep/4, which makes up the complete REPL.
 
-repl(Gamma1, Global1) :-
-    (catch((R = success, rep(Gamma1, Global1, Gamma2, Global2)),
-        Err,
-        R = error(Err))),
+repl(Gamma, Global) :-
+    rep(Gamma, Global, Gamma2, Global2),
+    repl(Gamma2, Global2).
 
-    % if rep failed
-    (R = error(Err) ->
-        % then
-        write_error(Err),
-        repl(Gamma1, Global1);
 
-        % else
-        repl(Gamma2, Global2)).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% init_opts_spec/1 command line options spec.
+
+init_opts_spec([
+    [
+        opt(help), type(boolean), default(false),
+        shortflags(['h']),
+        longflags(['help']),
+        help('prints this help message')
+    ],
+    [
+        opt(debug), type(boolean), default(false),
+        longflags(['debug']),
+        help('enables debug mode allowing users to step through execution of their programs')
+    ],
+    [
+        opt(stop), type(atom), default(eval),
+        longflags(['stop']),
+        help([
+            'stops evaluation of the program at the given step, displaying relevant information',
+            'possible values are: lex, parse, type-check and eval'
+        ])
+    ]
+]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% parse_args/2
+
+parse_args(opts(help(Help), debug(Debug), stop(Stop)), files(Args)) :-
+    current_prolog_flag(argv, Argv),
+    init_opts_spec(OptsSpec),
+    opt_parse(OptsSpec, Argv, Opts, Args),
+
+    % command-line options
+    member(help(Help),   Opts),
+    member(debug(Debug), Opts),
+    member(stop(Stop),   Opts).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% print_help/2
+
+print_help(false).
+print_help(true) :-
+    init_opts_spec(OptsSpec),
+    opt_help(OptsSpec, HelpText),
+    writeln('Usage: ap [opts] [file]'),
+    writeln(HelpText),
+    halt.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -98,20 +153,26 @@ repl(Gamma1, Global1) :-
 
 main :-
     % command line arguments
-    current_prolog_flag(argv, Argv),
+    parse_args(opts(help(Help), debug(Debug), stop(_)), files(Files)),
+
+    % help
+    print_help(Help),
+
+    % enable gtrace for debug options
+    (Debug == true -> gtrace; true),
+
+    % initialise gamma and global environment
+    type_checker:init_gamma(Gamma),
+    interpreter:init_env(env(_, Global)),
+
+    % interpret files, then drop into repl
+    interpret_files(Files, Gamma, Global, Gamma2, Global2),
 
     % print welcome message
     writeln('Welcome to the "Adhoc-Prologmorphism" REPL.'),
     writeln('Use Ctl-D to exit'),
 
-    % initialise gamma and global environment
-    init_gamma(Gamma),
-    init_env(env(_, Global)),
-
-    % turn on trace
-    (member('--trace', Argv) -> trace; true),
-
     % start the REPL
-    repl(Gamma, Global),
+    repl(Gamma2, Global2),
 
     halt.
