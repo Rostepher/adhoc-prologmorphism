@@ -19,9 +19,12 @@ lookup(Key, env(Rho, Gamma), Val) :-
 init_global_env([
     % bool
     ['not', prim('not')],
+    ['and', prim('and')],
+    ['or',  prim('or')],
 
     % int
     ['=', prim('=')],
+    ['<', prim('<')],
     ['+', prim('+')],
     ['-', prim('-')],
     ['*', prim('*')],
@@ -29,6 +32,7 @@ init_global_env([
 
     % float
     ['=.', prim('=.')],
+    ['<.', prim('<.')],
     ['+.', prim('+.')],
     ['-.', prim('-.')],
     ['*.', prim('*.')],
@@ -56,23 +60,39 @@ init_env(env([], Gamma)) :-
 delta('not', true, false).
 delta('not', false, true).
 
+delta('and'(true), true, true).
+delta('and'(_), _, false).
+
+delta('or'(true), _, true).
+delta('or'(_), true, true).
+delta('or'(_), _, false).
+
+
 % ints
 delta('='(X), X, true).
 delta('='(_), _, false).
+
+delta('<'(X), Y, true) :- X < Y.
+delta('<'(_), _, false).
 
 delta('+'(X), Y, Val) :- Val is X + Y.
 delta('-'(X), Y, Val) :- Val is X - Y.
 delta('*'(X), Y, Val) :- Val is X * Y.
 delta('/'(X), Y, Val) :- Val is X / Y.
 
+
 % floats
 delta('=.'(X), X, true).
 delta('=.'(_), _, false).
+
+delta('<.'(X), Y, true) :- X < Y.
+delta('<.'(_), _, false).
 
 delta('+.'(X), Y, Val) :- Val is X + Y.
 delta('-.'(X), Y, Val) :- Val is X - Y.
 delta('*.'(X), Y, Val) :- Val is X * Y.
 delta('/.'(X), Y, Val) :- Val is X / Y.
+
 
 % lists
 delta('nil?', nil, true).
@@ -85,6 +105,7 @@ delta('head', cons(M, _), M).
 
 delta('tail', nil, nil).
 delta('tail', cons(_, N), N).
+
 
 % catch-all
 delta(Prim, Arg, prim(Val)) :- Val =.. [Prim, Arg].

@@ -17,11 +17,12 @@ judge_type(Gamma, defvar(var(Var), Exp), T, Gamma2) :-
     simple_extend(Gamma, Var, T, Gamma2).
 
 % defun
-judge_type(Gamma, defun(var(Fun), var(Var), VarT, Exp, ExpT), arrow(VarT, ExpT), Gamma4) :-
+judge_type(Gamma, defun(var(Fun), var(Var), VarT, Exp, ExpT), DefunT, Gamma4) :-
     simple_extend(Gamma, Var, VarT, Gamma2),
     simple_extend(Gamma2, Fun, arrow(VarT, ExpT), Gamma3),
     judge_type(Gamma3, Exp, ExpT, _),
-    extend(Gamma, Fun, arrow(VarT, ExpT), Gamma4).
+    create_arrow_type(VarT, ExpT, DefunT),
+    extend(Gamma, Fun, DefunT, Gamma4).
 
 % if
 judge_type(Gamma, if(Cond, Then, Else), IfT, Gamma) :-
@@ -71,12 +72,10 @@ judge_type(Gamma, Exp, _, _) :-
 
 
 % convienience predicates
-type_check(Gamma, [Prog], [T], Gamma2) :-
-    quantify_types([], Prog, Prog2),
-    judge_type(Gamma, Prog2, T, Gamma2).
-
+type_check(Gamma, [], [], Gamma2).
 type_check(Gamma, [Prog | Rest], [T | Ts], Gamma3) :-
-    judge_type(Gamma, Prog, T, Gamma2),
+    quantify_types([], Prog, Prog2),
+    judge_type(Gamma, Prog2, T, Gamma2),
     type_check(Gamma2, Rest, Ts, Gamma3).
 
 
@@ -86,7 +85,6 @@ type_check(Gamma, [Prog | Rest], [T | Ts], Gamma3) :-
 % simple_extend/4
 simple_extend(Gamma, Var, T, [[Var, ST] | Gamma]) :-
     skolemize(T, ST).
-% simple_extend(Gamma, Var, T, [[Var, forall([], T)] | Gamma]).
 
 
 % extend/4
@@ -95,10 +93,6 @@ extend(Gamma, Var, T, [[Var, forall(STVs2, ST)] | Gamma]) :-
     free_env_vars(Gamma, GVs),
     free_type_vars(ST, FreeTVs),
     set:subtract(FreeTVs, GVs, STVs2).
-% extend(Gamma, Var, T, [[Var, forall(TVs, T)] | Gamma]) :-
-%     free_env_vars(Gamma, GammaTVs),
-%     free_type_vars(T, FreeTVs),
-%     set:subtract(FreeTVs, GammaTVs, TVs).
 
 
 % lookup/3
@@ -113,9 +107,6 @@ type_from_scheme(forall(TVs, T), FreshT) :-
     skolemize(forall(TVs, T), forall(STVs, ST)),
     fresh_vars(STVs, FreshTVs),
     replace(ST, STVs, FreshTVs, FreshT).
-% type_from_scheme(forall(TVs, T), FreshT) :-
-%     fresh_vars(TVs, FreshTVs),
-%     replace(T, TVs, FreshTVS, FreshT).
 
 
 % fresh_vars
@@ -200,22 +191,12 @@ remove_empty_scheme(forall([], T), T).
 remove_empty_scheme(forall(TVs, T), forall(TVs, T)).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% simplify_type/2 first skolemizes an input type and then removes the forall
-% quantifier if it is empty.
-
-simplify_type(T, T2) :-
-    skolemize(T, ST),
-    remove_empty_scheme(ST, T2).
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% unify_types/3 unifies two types by simplifying each and then unifying their
-% simplified forms.
+% create_arrow_type/3
 
-unify_types(T1, T2, UT) :-
-    simplify_type(T1, UT),
-    simplify_type(T2, UT).
+create_arrow_type(T1, T2, Arrow) :-
+    skolemize(arrow(T1, T2), ST),
+    remove_empty_scheme(ST, Arrow).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -224,9 +205,12 @@ unify_types(T1, T2, UT) :-
 init_gamma([
     % bool
     ['not', forall([], arrow(bool, bool))],
+    ['and', forall([], arrow(bool, arrow(bool, bool)))],
+    ['or',  forall([], arrow(bool, arrow(bool, bool)))],
 
     % int
     ['=', forall([], arrow(int, arrow(int, bool)))],
+    ['<', forall([], arrow(int, arrow(int, bool)))],
     ['+', forall([], arrow(int, arrow(int, int)))],
     ['-', forall([], arrow(int, arrow(int, int)))],
     ['*', forall([], arrow(int, arrow(int, int)))],
@@ -234,6 +218,7 @@ init_gamma([
 
     % float
     ['=.', forall([], arrow(float, arrow(float, bool)))],
+    ['<.', forall([], arrow(int, arrow(int, bool)))],
     ['+.', forall([], arrow(float, arrow(float, float)))],
     ['-.', forall([], arrow(float, arrow(float, float)))],
     ['*.', forall([], arrow(float, arrow(float, float)))],
