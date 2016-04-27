@@ -1,0 +1,30 @@
+(defvar id (lambda (x : a) x))
+
+(defun (<> ((x : int) (y : int)) : bool)
+    (not (= x y)))
+
+(defun (<= ((x : int) (y : int)) : bool)
+    (or (= x y) (< x y)))
+
+(defun (> ((x : int) (y : int)) : bool)
+    (not (and (= x y) (< x y))))
+
+(defun (>= ((x : int) (y : int)) : bool)
+    (or (= x y) (> x y)))
+
+(defun (range ((start : int) (stop : int)) : [int])
+    (if (>= start stop)
+        []
+        (cons start (range (+ start 1) stop))))
+
+(defun (map ((f : a -> b) (lst : [a])) : [b])
+    (if (nil? lst)
+        []
+        (let ((h (head lst)) (t (tail lst)))
+            (cons (f h) (map f t)))))
+
+(defun (foldr ((f : a -> b -> b) (accum : b) (lst : [a])) : b)
+    (if (nil? lst)
+        accum
+        (let ((h (head lst)) (t (tail lst)))
+            (f h (foldr f accum t)))))
