@@ -1,4 +1,4 @@
-(defvar id (lambda (x : a) x))
+(defun (id (x : a) : a) x)
 
 (defun (<> ((x : int) (y : int)) : bool)
     (not (= x y)))

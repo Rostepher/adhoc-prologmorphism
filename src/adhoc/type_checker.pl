@@ -72,7 +72,7 @@ judge_type(Gamma, Exp, _, _) :-
 
 
 % convienience predicates
-type_check(Gamma, [], [], Gamma2).
+type_check(Gamma, [], [], Gamma).
 type_check(Gamma, [Prog | Rest], [T | Ts], Gamma3) :-
     quantify_types([], Prog, Prog2),
     judge_type(Gamma, Prog2, T, Gamma2),
@@ -95,11 +95,23 @@ extend(Gamma, Var, T, [[Var, forall(STVs2, ST)] | Gamma]) :-
     set:subtract(FreeTVs, GVs, STVs2).
 
 
+% simple_lookup/3
+% simple_lookup(X, [[X, Scheme] | _], Type) :-
+%     !, simple_type_from_scheme(Scheme, Type).
+% simple_lookup(X, [_ | Tail], Type) :-
+%     simple_lookup(X, Tail, Type).
+
+
 % lookup/3
 lookup(X, [[X, Scheme] | _], Type) :-
     !, type_from_scheme(Scheme, Type).
 lookup(X, [_ | Tail], Type) :-
     lookup(X, Tail, Type).
+
+
+% simple_type_from_scheme/2
+% simple_type_from_scheme(forall(TVs, T), ST) :-
+%     skolemize(forall(TVs, T), forall(_, ST)).
 
 
 % type_from_scheme/2
