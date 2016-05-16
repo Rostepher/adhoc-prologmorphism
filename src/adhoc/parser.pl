@@ -60,8 +60,9 @@ definition(defun(var(Fun), Schemes, Args, Exp, ExpT)) -->
     parens((
         [defun, ident(Fun)],
         optional_parens((
+            [colon],
             optional_type_schemes(Schemes),
-            parens(formals(Args)),
+            variables(Args),
             [arrow],
             type(ExpT)
         )),
@@ -246,19 +247,19 @@ transform(defvar(var(Var), Exp), defvar(var(Var), Exp2)) :-
 
 % defun (function)
 transform(defun(var(Fun), Schemes, [[var(Arg), ArgT]], Exp, ExpT),
-        defun(var(Fun), Schemes, var(Arg), ArgT, Exp2, ExpT)) :-
+        defun(var(Fun), var(Arg), forall(Schemes, ArgT), Exp2, ExpT)) :-
     transform(Exp, Exp2).
 transform(defun(var(Fun), Schemes, [[var(Arg), ArgT] | Args], Exp, ExpT),
-        defun(var(Fun), Schemes, var(Arg), ArgT, Lambda, RetT)) :-
-    defun_args_type(Args, ExpT, RetT),
+        defun(var(Fun), var(Arg), forall(Schemes, ArgT), Lambda, LambdaT)) :-
+    defun_args_type(Args, ExpT, LambdaT),
     transform_lambda(Args, Exp, Lambda).
 
 % overload
 transform(over(var(Op)), over(var(Op))).
 
 % instance
-transform(inst(var(Op), OpSchemes, OpT, Exp),
-        inst(var(Op), forall(OpSchemes, OpT), Exp2)) :-
+transform(inst(var(Op), Schemes, OpT, Exp),
+        inst(var(Op), forall(Schemes, OpT), Exp2)) :-
     transform(Exp, Exp2).
 
 % if

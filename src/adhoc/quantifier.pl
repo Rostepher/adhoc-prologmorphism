@@ -1,109 +1,100 @@
-:- module(quantifier, [quantify_types/3]).
+:- module(quantifier, [quantify_ast/3]).
 
 :- use_module(set).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% quantify_types/3 traverses the AST and quantifies all types, transforming
+% quantify_ast/3 traverses the AST and quantifies all types, transforming
 % them into type schemes.
 
-quantify_types(_, [], []).
-quantify_types(TVs, [Prog | Rest], [Prog2 | Rest2]) :-
-    quantify_types(TVs, Prog, Prog2),
-    quantify_types(TVs, Rest, Rest2).
-
 % defvar
-quantify_types(TVs, defvar(var(Var), Exp), defvar(var(Var), Exp2)) :-
-    quantify_types(TVs, Exp, Exp2).
+quantify_ast(TVs, defvar(var(Var), Exp), Defvar) :-
+    quantify_ast(TVs, Exp, Exp2),
+    Defvar = defvar(var(Var), Exp2).
 
 % defun
-quantify_types(TVs, defun(var(Fun), Schemes, var(Arg), ArgT, Exp, ExpT),
-        defun(var(Fun), FunT, var(Arg), ArgT3, Exp2, ExpT3)) :-
-    create_fun_type(TVs, Schemes, arrow(ArgT, ExpT), FunT, TVs2),
-
-    type_to_scheme(TVs2, ArgT, ArgT2, TVs3),
-    type_to_scheme(TVs3, ExpT, ExpT2, _),
-    remove_empty_scheme(ArgT2, ArgT3),
-    remove_empty_scheme(ExpT2, ExpT3),
-    quantify_types(TVs3, Exp, Exp2).
+quantify_ast(TVs, defun(var(Fun), var(Arg), ArgT, Exp, ExpT), Defun) :-
+    quantify_type(TVs,  ArgT, ArgT2, TVs2),
+    quantify_type(TVs2, ExpT, ExpT2, _),
+    quantify_ast(TVs2, Exp, Exp2),
+    Defun = defun(var(Fun), var(Arg), ArgT2, Exp2, ExpT2).
 
 % over
-quantify_types(_, over(var(Op)), over(var(Op))).
+quantify_ast(_, over(var(Op)), Over) :-
+    Over = over(var(Op)).
 
 % inst
-quantify_types(TVs, inst(var(Op), forall(Schemes, OpT), Exp),
-        inst(var(Op), forall(Schemes2, OpT3), Exp2)) :-
-    quantify_type_schemes(TVs, Schemes, Schemes2),
-    type_to_scheme(TVs, OpT, OpT2, TVs2),
-    remove_empty_scheme(OpT2, OpT3),
-    quantify_types(TVs2, Exp, Exp2).
+quantify_ast(TVs, inst(var(Op), OpT, Exp), Inst) :-
+    quantify_type(TVs, OpT, OpT2, TVs2),
+    quantify_ast(TVs2, Exp, Exp2),
+    Inst = inst(var(Op), OpT2, Exp2).
 
 % if
-quantify_types(TVs, if(Cond, Then, Else), if(Cond2, Then2, Else2)) :-
-    quantify_types(TVs, Cond, Cond2),
-    quantify_types(TVs, Then, Then2),
-    quantify_types(TVs, Else, Else2).
+quantify_ast(TVs, if(Cond, Then, Else), If) :-
+    quantify_ast(TVs, Cond, Cond2),
+    quantify_ast(TVs, Then, Then2),
+    quantify_ast(TVs, Else, Else2),
+    If = if(Cond2, Then2, Else2).
 
 % lambda
-quantify_types(TVs, lambda(var(Var), VarT, Body),
-        lambda(var(Var), VarT3, Body2)) :-
+quantify_ast(TVs, lambda(var(Var), VarT, Body), Lambda) :-
     type_to_scheme(TVs, VarT, VarT2, TVs2),
     remove_empty_scheme(VarT2, VarT3),
-    quantify_types(TVs2, Body, Body2).
+    quantify_ast(TVs2, Body, Body2),
+    Lambda = lambda(var(Var), VarT3, Body2).
 
 % let
-quantify_types(TVs, let(var(Var), Exp, Body),
-        let(var(Var), Exp2, Body2)) :-
-    quantify_types(TVs, Exp,  Exp2),
-    quantify_types(TVs, Body, Body2).
+quantify_ast(TVs, let(var(Var), Exp, Body), Let) :-
+    quantify_ast(TVs, Exp,  Exp2),
+    quantify_ast(TVs, Body, Body2),
+    Let = let(var(Var), Exp2, Body2).
 
 % apply
-quantify_types(TVs, apply(Exp, Arg), apply(Exp2, Arg2)) :-
-    quantify_types(TVs, Exp, Exp2),
-    quantify_types(TVs, Arg, Arg2).
+quantify_ast(TVs, apply(Exp, Arg), Apply) :-
+    quantify_ast(TVs, Exp, Exp2),
+    quantify_ast(TVs, Arg, Arg2),
+    Apply = apply(Exp2, Arg2).
 
 % var
-quantify_types(_, var(Var), var(Var)).
+quantify_ast(_, var(Var), var(Var)).
 
 % constants
-quantify_types(_, true,     true).
-quantify_types(_, false,    false).
-quantify_types(_, float(F), float(F)).
-quantify_types(_, int(I),   int(I)).
+quantify_ast(_, true,     true).
+quantify_ast(_, false,    false).
+quantify_ast(_, float(F), float(F)).
+quantify_ast(_, int(I),   int(I)).
 
 % lists
-quantify_types(_, nil, nil).
-quantify_types(TVs, cons(Head, Tail), cons(Head2, Tail2)) :-
-    quantify_types(TVs, Head, Head2),
-    quantify_types(TVs, Tail, Tail2).
+% TODO: fix nil type, make it polymorphic
+quantify_ast(_, nil, nil).
+quantify_ast(TVs, cons(Head, Tail), cons(Head2, Tail2)) :-
+    quantify_ast(TVs, Head, Head2),
+    quantify_ast(TVs, Tail, Tail2).
 
 % error
-quantify_types(TVs, Exp, _) :-
-    throw(quantify_type_error(TVs, Exp)).
+quantify_ast(TVs, Exp, _) :-
+    throw(quantifier_error(TVs, Exp)).
 
 
-create_fun_type(TVs, Schemes, FunT, forall(FunSchemes2, FunT2), TVs2) :-
-    quantify_type_schemes(TVs, Schemes, Schemes2, TVs2),
-    type_to_scheme(TVs2, FunT, forall(FunSchemes, FunT2), _),
-    set:union(Schemes2, FunSchemes, FunSchemes2).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% quantify_type_schemes/4
 
-
-% union_schemes([], S2, S2).
-% union_schemes([scheme(Alpha, Cons) | Schemes],
-
-
-quantify_type_schemes(_, [], []).
-quantify_type_schemes(TVs, [scheme(Alpha, PiAlpha) | Schemes],
-        [scheme(Alpha2, PiAlpha2) | Schemes2], TVs) :-
+quantify_type_schemes(TVs, [], [], TVs).
+quantify_type_schemes(TVs, [scheme(Alpha, Constraints) | Schemes],
+        [scheme(Alpha2, Constraints2) | Schemes2], TVs2) :-
     lookup(TVs, Alpha, Alpha2),
-    quantify_type_constraints(TVs, PiAlpha, PiAlpha2),
-    quantify_type_schemes(TVs, Schemes, Schemes2).
-quantify_type_schemes(TVs, [scheme(Alpha, PiAlpha) | Schemes],
-        [scheme(Alpha2, PiAlpha2) | Schemes2], TVs2) :-
-    extend(TVs, Alpha, Alpha2, TVs2),
-    quantify_type_constraints(TVs2, PiAlpha, PiAlpha2),
-    quantify_type_schemes(TVs2, Schemes, Schemes2).
+    quantify_type_constraints(TVs, Constraints, Constraints2),
+    quantify_type_schemes(TVs, Schemes, Schemes2, TVs2).
 
+quantify_type_schemes(TVs, [scheme(Alpha, Constraints) | Schemes],
+        [scheme(Alpha2, Constraints2) | Schemes2], TVs3) :-
+    extend(TVs, Alpha, Alpha2, TVs2),
+    quantify_type_constraints(TVs2, Constraints, Constraints2),
+    quantify_type_schemes(TVs2, Schemes, Schemes2, TVs3).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% quantify_type_constraints/3
 
 quantify_type_constraints(_, [], []).
 quantify_type_constraints(TVs, [constraint(Op, OpT) | Cons],
@@ -111,6 +102,14 @@ quantify_type_constraints(TVs, [constraint(Op, OpT) | Cons],
     type_to_scheme(TVs, OpT, OpT2, TVs2),
     remove_empty_scheme(OpT2, OpT3),
     quantify_type_constraints(TVs2, Cons, Cons2).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% type_vars_from_scheme/2
+
+type_vars_from_scheme([], []).
+type_vars_from_scheme([scheme(Var, _) | Schemes], [Var | Vars]) :-
+    type_vars_from_scheme(Schemes, Vars).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -145,6 +144,21 @@ type_to_scheme(TVs, T, forall([scheme(Var, [])], Var), TVs2) :-
 
 remove_empty_scheme(forall([], T), T).
 remove_empty_scheme(forall(TVs, T), forall(TVs, T)).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% quantify_type/4
+
+quantify_type(TVs, forall(Schemes, T), T3, TVs4) :-
+    quantify_type_schemes(TVs, Schemes, Schemes2, TVs2),
+    type_vars_from_scheme(Schemes2, SchemeTVs),
+    set:union(TVs2, SchemeTVs, TVs3),
+    type_to_scheme(TVs3, T, T2, TVs4),
+    remove_empty_scheme(T2, T3).
+
+quantify_type(TVs, T, T3, TVs2) :-
+    type_to_scheme(TVs, T, T2, TVs2),
+    remove_empty_scheme(T2, T3).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

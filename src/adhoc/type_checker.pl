@@ -113,9 +113,9 @@ judge_type(Env, Exp, _, _, _) :-
 
 % convienience predicates
 type_check(Env, [], [], [], Env).
-type_check(Env, [Prog | Rest], [NewProg | NewRest], [T | Ts], Env3) :-
-    quantify_types([], Prog, Prog2),
-    judge_type(Env, Prog2, NewProg, T, Env2),
+type_check(Env, [Ast | Rest], [NewAst | NewRest], [T | Ts], Env3) :-
+    quantify_ast([], Ast, Ast2),
+    judge_type(Env,  Ast2, NewAst,  T,  Env2),
     type_check(Env2, Rest, NewRest, Ts, Env3).
 
 
@@ -185,9 +185,9 @@ implement_inst(inst(var(Op), OpT, Exp), ImplT, Impl) :-
 insert_inst_insts(Insts, Inst, Impl, Insts2) :-
     implement_inst(Inst, ImplT, Impl),
     Inst = inst(var(Op), _, _),
-    Impl = defvar(var(Name), _),
-    \+ member([Op, ImplT, ImplName], Insts),
-    Insts2 = [[Op, ImplT, ImplName] | Insts].
+    Impl = defvar(var(ImplName), _),
+    \+ member(inst(Op, ImplT, ImplName), Insts),
+    Insts2 = [inst(Op, ImplT, ImplName) | Insts].
 
 insert_inst_insts(Insts, Inst, _, _) :-
     throw(impl_inst_error(already_exists, Inst, Insts)).
@@ -196,13 +196,14 @@ insert_inst_insts(Insts, Inst, _, _) :-
 % alpha_type/2
 alpha_type(arrow(list(_), _), list).
 alpha_type(arrow(Alpha, _), Alpha).
-% alpha_type(Alpha, Alpha).
+alpha_type(forall(_, T), Alpha) :-
+    alpha_type(T, Alpha).
 alpha_type(T, _) :-
     throw(inst_type_error(missing_arrow_type, T)).
 
 
 % inst_name/3
-inst_name(Op, forall(_, OpT), Name) :-
+inst_name(Op, OpT, Name) :-
     alpha_type(OpT, Alpha),
     atomic_list_concat(['inst_', Op, '_', Alpha], Name).
 
