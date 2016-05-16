@@ -21,7 +21,7 @@ zip_results([Val | Vals], [Type | Types], [result(Val, Type) | Results]) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % interpret_codes/5
 
-interpret_codes(Codes, Gamma, Global, Gamma2, Global2) :-
+interpret_codes(Codes, TypeEnv, Global, TypeEnv2, Global2) :-
     % tokenize
     lexer:tokenize(Codes, Tokens), !,
 
@@ -29,10 +29,10 @@ interpret_codes(Codes, Gamma, Global, Gamma2, Global2) :-
     parser:parse(Tokens, Ast), !,
 
     % type check the ast
-    type_checker:type_check(Gamma, Ast, Types, Gamma2), !,
+    type_checker:type_check(TypeEnv, Ast, Ast2, Types, TypeEnv2), !,
 
     % evaluate the ast
-    interpreter:eval(Ast, env([], Global), Vals, Global2), !,
+    interpreter:eval(Ast2, env([], Global), Vals, Global2), !,
 
     % print the results
     zip_results(Vals, Types, Results),
@@ -42,22 +42,22 @@ interpret_codes(Codes, Gamma, Global, Gamma2, Global2) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % interpret_file/5
 
-interpret_file(File, Gamma, Global, Gamma2, Global2) :-
+interpret_file(File, TypeEnv, Global, TypeEnv2, Global2) :-
     read_file_to_codes(File, Codes, []),
-    catch(interpret_codes(Codes, Gamma, Global, Gamma2, Global2),
+    catch(interpret_codes(Codes, TypeEnv, Global, TypeEnv2, Global2),
         Error,
         (print_error(Error),
-            copy_term(Gamma, Gamma2),
+            copy_term(TypeEnv, TypeEnv2),
             copy_term(Global, Global2))).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % interpret_files/5
 
-interpret_files([], Gamma, Global, Gamma, Global).
-interpret_files([F | Fs], Gamma, Global, Gamma3, Global3) :-
-    interpret_file(F, Gamma, Global, Gamma2, Global2),
-    interpret_files(Fs, Gamma2, Global2, Gamma3, Global3).
+interpret_files([], TypeEnv, Global, TypeEnv, Global).
+interpret_files([F | Fs], TypeEnv, Global, TypeEnv3, Global3) :-
+    interpret_file(F, TypeEnv, Global, TypeEnv2, Global2),
+    interpret_files(Fs, TypeEnv2, Global2, TypeEnv3, Global3).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -73,26 +73,26 @@ read_prompt(Msg, Input) :-
 % a program from the user, then type checks and evaluates the program, printing
 % the final result to stdout.
 
-rep(Gamma, Global, Gamma2, Global2) :-
+rep(TypeEnv, Global, TypeEnv2, Global2) :-
     % read
     read_prompt('> ', Codes),
 
     % Ctl-D (a.k.a. end_of_file)
     (Codes == end_of_file -> halt; true),
 
-    catch(interpret_codes(Codes, Gamma, Global, Gamma2, Global2),
+    catch(interpret_codes(Codes, TypeEnv, Global, TypeEnv2, Global2),
         Error,
         (print_error(Error),
-            copy_term(Gamma, Gamma2),
+            copy_term(TypeEnv, TypeEnv2),
             copy_term(Global, Global2))).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % repl/2 is the loop enclosing rep/4, which makes up the complete REPL.
 
-repl(Gamma, Global) :-
-    rep(Gamma, Global, Gamma2, Global2),
-    repl(Gamma2, Global2).
+repl(TypeEnv, Global) :-
+    rep(TypeEnv, Global, TypeEnv2, Global2),
+    repl(TypeEnv2, Global2).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -161,18 +161,18 @@ main :-
     % enable gtrace for debug options
     (Debug == true -> gtrace; true),
 
-    % initialise gamma and global environment
-    type_checker:init_gamma(Gamma),
+    % initialise type environment and global environment
+    type_checker:init_type_env(TypeEnv),
     interpreter:init_env(env(_, Global)),
 
     % interpret files, then drop into repl
-    interpret_files(Files, Gamma, Global, Gamma2, Global2),
+    interpret_files(Files, TypeEnv, Global, TypeEnv2, Global2),
 
     % print welcome message
     writeln('Welcome to the "Adhoc-Prologmorphism" REPL.'),
     writeln('Use Ctl-D to exit'),
 
     % start the REPL
-    repl(Gamma2, Global2),
+    repl(TypeEnv2, Global2),
 
     halt.

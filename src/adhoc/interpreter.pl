@@ -18,25 +18,26 @@ lookup(Key, env(Rho, Gamma), Val) :-
 
 init_global_env([
     % bool
-    ['not', prim('not')],
-    ['and', prim('and')],
-    ['or',  prim('or')],
+    ['not',   prim('not')],
+    ['and',   prim('and')],
+    ['or',    prim('or')],
+    ['=bool', prim('=bool')],
 
     % int
-    ['=', prim('=')],
-    ['<', prim('<')],
-    ['+', prim('+')],
-    ['-', prim('-')],
-    ['*', prim('*')],
-    ['/', prim('/')],
+    ['=int', prim('=int')],
+    ['<int', prim('<int')],
+    ['+int', prim('+int')],
+    ['-int', prim('-int')],
+    ['*int', prim('*int')],
+    ['/int', prim('/int')],
 
     % float
-    ['=.', prim('=.')],
-    ['<.', prim('<.')],
-    ['+.', prim('+.')],
-    ['-.', prim('-.')],
-    ['*.', prim('*.')],
-    ['/.', prim('/.')],
+    ['=float', prim('=float')],
+    ['<float', prim('<float')],
+    ['+float', prim('+float')],
+    ['-float', prim('-float')],
+    ['*float', prim('*float')],
+    ['/float', prim('/float')],
 
     % list
     ['nil?', prim('nil?')],
@@ -67,31 +68,34 @@ delta('or'(true), _, true).
 delta('or'(_), true, true).
 delta('or'(_), _, false).
 
+delta('=bool'(X), X, true).
+delta('=bool'(_), _, false).
+
 
 % ints
-delta('='(X), X, true).
-delta('='(_), _, false).
+delta('=int'(X), X, true).
+delta('=int'(_), _, false).
 
-delta('<'(X), Y, true) :- X < Y.
-delta('<'(_), _, false).
+delta('<int'(X), Y, true) :- X < Y.
+delta('<int'(_), _, false).
 
-delta('+'(X), Y, Val) :- Val is X + Y.
-delta('-'(X), Y, Val) :- Val is X - Y.
-delta('*'(X), Y, Val) :- Val is X * Y.
-delta('/'(X), Y, Val) :- Val is X / Y.
+delta('+int'(X), Y, Val) :- Val is X + Y.
+delta('-int'(X), Y, Val) :- Val is X - Y.
+delta('*int'(X), Y, Val) :- Val is X * Y.
+delta('/int'(X), Y, Val) :- Val is X / Y.
 
 
 % floats
-delta('=.'(X), X, true).
-delta('=.'(_), _, false).
+delta('=float'(X), X, true).
+delta('=float'(_), _, false).
 
-delta('<.'(X), Y, true) :- X < Y.
-delta('<.'(_), _, false).
+delta('<float'(X), Y, true) :- X < Y.
+delta('<float'(_), _, false).
 
-delta('+.'(X), Y, Val) :- Val is X + Y.
-delta('-.'(X), Y, Val) :- Val is X - Y.
-delta('*.'(X), Y, Val) :- Val is X * Y.
-delta('/.'(X), Y, Val) :- Val is X / Y.
+delta('+float'(X), Y, Val) :- Val is X + Y.
+delta('-float'(X), Y, Val) :- Val is X - Y.
+delta('*float'(X), Y, Val) :- Val is X * Y.
+delta('/float'(X), Y, Val) :- Val is X / Y.
 
 
 % lists
@@ -150,6 +154,9 @@ evaluate(defun(var(F), var(X), _, M, _), env(Rho, Global), none, Global2) :-
 evaluate(defvar(var(X), M), env(Rho, Global), none, Global3) :-
     evaluate(M, env(Rho, Global), Val, Global2),
     extend(Global2, X, Val, Global3).
+
+% over
+evaluate(over(_), env(_, Global), none, Global).
 
 % if
 evaluate(if(M1, M2, M3), env(Rho, Global), Val, Global3) :-

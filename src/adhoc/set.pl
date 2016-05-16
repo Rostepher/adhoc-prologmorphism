@@ -1,8 +1,22 @@
-:- module(set, [intersection/3, subtract/3, union/3]).
+:- module(set, [
+    insert/3,
+    remove/3,
+    intersection/3,
+    subtract/3,
+    union/3
+]).
 
 
 member_eq(X, [Y | _])  :- X == Y, !.
 member_eq(X, [_ | Ys]) :- member_eq(X, Ys).
+
+
+insert(E, Set, Set2) :-
+    union([E], Set, Set2).
+
+
+remove(E, Set, Set2) :-
+    subtract(Set, [E], Set2).
 
 
 intersection([], _, []).
