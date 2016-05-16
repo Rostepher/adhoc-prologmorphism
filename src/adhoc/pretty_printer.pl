@@ -1,4 +1,4 @@
-:- module(pretty_printer, [print_error/1, print_results/1]).
+:- module(pretty_printer, [print_error/1, print_results/1, print_with_title/2]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -18,9 +18,11 @@ print_error(transform_error(Exp)) :-
     format('A transformation error occurred with expression: "~w"~n', [Exp]).
 
 % type_error
-print_error(type_error(Exp, Gamma)) :-
+print_error(type_error(Exp, env(Gamma, Overs, Insts))) :-
     format('A type error occurred with expression: "~w"~n', [Exp]),
-    format('    gamma: ~w~n', [Gamma]).
+    format('    gamma: ~w~n', [Gamma]),
+    format('    overs: ~w~n', [Overs]),
+    format('    insts: ~w~n', [Insts]).
 
 % runtime_error
 print_error(runtime_error(Exp, env(Rho, Global))) :-
@@ -31,6 +33,13 @@ print_error(runtime_error(Exp, env(Rho, Global))) :-
 % other error
 print_error(Err) :-
     format('An unknown error occurred: ~w~n', [Err]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% print_with_title/2
+
+print_with_title(Title, Term) :-
+    format('~w: ~w~n', [Title, Term]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

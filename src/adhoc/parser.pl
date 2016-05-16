@@ -77,9 +77,9 @@ overload(over(var(Op))) --> parens([over, ident(Op)]).
 
 instance(inst(var(Op), OpSchemes, OpT, Exp)) -->
     parens((
-        [inst],
+        [inst, ident(Op)],
         parens((
-            [ident(Op), colon],
+            [colon],
             optional_type_schemes(OpSchemes),
             type(OpT)
         )),
@@ -291,7 +291,7 @@ transform(int(I), int(I)).
 transform(float(F), float(F)).
 
 % lists
-transform(nil, nil).
+transform(nil, var('nil')).
 transform(cons(Head, Tail), cons(Head2, Tail2)) :-
     transform(Head, Head2),
     transform(Tail, Tail2).

@@ -21,15 +21,18 @@ zip_results([Val | Vals], [Type | Types], [result(Val, Type) | Results]) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % interpret_codes/5
 
-interpret_codes(Codes, TypeEnv, Global, TypeEnv2, Global2) :-
+interpret_codes(Opts, Codes, TypeEnv, Global, TypeEnv2, Global2) :-
     % tokenize
     lexer:tokenize(Codes, Tokens), !,
+    (opts_stop(Opts, 'lex') -> print_with_title('lex', Tokens); true),
 
     % parse the tokens into the ast
     parser:parse(Tokens, Ast), !,
+    (opts_stop(Opts, 'parse') -> print_with_title('parse', Ast); true),
 
     % type check the ast
     type_checker:type_check(TypeEnv, Ast, Ast2, Types, TypeEnv2), !,
+    (opts_stop(Opts, 'type-check') -> print_with_title('type-check', Ast2); true),
 
     % evaluate the ast
     interpreter:eval(Ast2, env([], Global), Vals, Global2), !,
@@ -42,9 +45,9 @@ interpret_codes(Codes, TypeEnv, Global, TypeEnv2, Global2) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % interpret_file/5
 
-interpret_file(File, TypeEnv, Global, TypeEnv2, Global2) :-
+interpret_file(Opts, File, TypeEnv, Global, TypeEnv2, Global2) :-
     read_file_to_codes(File, Codes, []),
-    catch(interpret_codes(Codes, TypeEnv, Global, TypeEnv2, Global2),
+    catch(interpret_codes(Opts, Codes, TypeEnv, Global, TypeEnv2, Global2),
         Error,
         (print_error(Error),
             copy_term(TypeEnv, TypeEnv2),
@@ -54,10 +57,10 @@ interpret_file(File, TypeEnv, Global, TypeEnv2, Global2) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % interpret_files/5
 
-interpret_files([], TypeEnv, Global, TypeEnv, Global).
-interpret_files([F | Fs], TypeEnv, Global, TypeEnv3, Global3) :-
-    interpret_file(F, TypeEnv, Global, TypeEnv2, Global2),
-    interpret_files(Fs, TypeEnv2, Global2, TypeEnv3, Global3).
+interpret_files(_, [], TypeEnv, Global, TypeEnv, Global).
+interpret_files(Opts, [F | Fs], TypeEnv, Global, TypeEnv3, Global3) :-
+    interpret_file(Opts, F, TypeEnv, Global, TypeEnv2, Global2),
+    interpret_files(Opts, Fs, TypeEnv2, Global2, TypeEnv3, Global3).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -69,18 +72,18 @@ read_prompt(Msg, Input) :-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% rep/4 is the 'R', 'E' and 'P' in REPL (Read Evaluate Print Loop), that reads
+% rep/5 is the 'R', 'E' and 'P' in REPL (Read Evaluate Print Loop), that reads
 % a program from the user, then type checks and evaluates the program, printing
 % the final result to stdout.
 
-rep(TypeEnv, Global, TypeEnv2, Global2) :-
+rep(Opts, TypeEnv, Global, TypeEnv2, Global2) :-
     % read
     read_prompt('> ', Codes),
 
     % Ctl-D (a.k.a. end_of_file)
     (Codes == end_of_file -> halt; true),
 
-    catch(interpret_codes(Codes, TypeEnv, Global, TypeEnv2, Global2),
+    catch(interpret_codes(Opts, Codes, TypeEnv, Global, TypeEnv2, Global2),
         Error,
         (print_error(Error),
             copy_term(TypeEnv, TypeEnv2),
@@ -90,9 +93,9 @@ rep(TypeEnv, Global, TypeEnv2, Global2) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % repl/2 is the loop enclosing rep/4, which makes up the complete REPL.
 
-repl(TypeEnv, Global) :-
-    rep(TypeEnv, Global, TypeEnv2, Global2),
-    repl(TypeEnv2, Global2).
+repl(Opts, TypeEnv, Global) :-
+    rep(Opts, TypeEnv, Global, TypeEnv2, Global2),
+    repl(Opts, TypeEnv2, Global2).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -148,17 +151,27 @@ print_help(true) :-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% opts
+
+opts_help(opts(help(Help), _, _),    Help).
+opts_debug(opts(_, debug(Debug), _), Debug).
+opts_stop(opts(_, _, stop(Stop)),    Stop).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % main/0 is a helper predicate to setup the initial environment and then to
 % call repl/2, until interrupted by the user.
 
 main :-
     % command line arguments
-    parse_args(opts(help(Help), debug(Debug), stop(_)), files(Files)),
+    parse_args(Opts, files(Files)),
 
     % help
+    opts_help(Opts, Help),
     print_help(Help),
 
     % enable gtrace for debug options
+    opts_debug(Opts, Debug),
     (Debug == true -> gtrace; true),
 
     % initialise type environment and global environment
@@ -166,13 +179,13 @@ main :-
     interpreter:init_env(env(_, Global)),
 
     % interpret files, then drop into repl
-    interpret_files(Files, TypeEnv, Global, TypeEnv2, Global2),
+    interpret_files(Opts, Files, TypeEnv, Global, TypeEnv2, Global2),
 
     % print welcome message
     writeln('Welcome to the "Adhoc-Prologmorphism" REPL.'),
     writeln('Use Ctl-D to exit'),
 
     % start the REPL
-    repl(TypeEnv2, Global2),
+    repl(Opts, TypeEnv2, Global2),
 
     halt.

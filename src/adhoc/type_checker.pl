@@ -33,13 +33,13 @@ judge_type(Env, defun(var(Fun), var(Arg), ArgT, Exp, ExpT), Defun, DefunT, Env4)
     extend_simple(Env2, Fun, arrow(ArgT, ExpT), Env3),
 
     % find overloaded constraints and replace them
+    create_arrow_type(ArgT, ExpT, DefunT),
     get_type_schemes(DefunT, Schemes),
     get_constraint_set(Schemes, Constraints),
     gen_over_vars(Constraints, OverVars),
     replace_over_vars(OverVars, Exp2, Exp3),
 
     judge_type(Env3, Exp, Exp2, ExpT, _),
-    % create_arrow_type(ArgT, ExpT, DefunT),
     extend(Env, Fun, DefunT, Env4),
 
     Defun = defun(var(Fun), var(Var), VarT, Exp3, ExpT).
@@ -91,7 +91,8 @@ judge_type(Env, apply(Exp, Arg), Apply, ApplyT, Env) :-
 
 
 % nil
-judge_type(Env, nil, nil, list(_T), Env).
+% judge_type(Env, nil, nil, forall([scheme(Tn, [])], list(Tn)), Env).
+% judge_type(Env, nil, nil, list(_T), Env).
 
 
 % lists
@@ -254,10 +255,21 @@ inst_name(Op, OpT, Name) :-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% not_defined/2
+
+not_defined(env(Gamma, _, _), Var) :-
+    \+ member([Var, _], Gamma).
+
+not_defined(Env, Var) :-
+    throw(type_error(already_defined(Env, Var))).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % extend_simple/4 extends the envrionment with the provided variable and
 % associated type.
 
 extend_simple(env(Gamma, Overs, Insts), Var, T, env(Gamma2, Overs, Insts)) :-
+    not_defined(env(Gamma, Overs, Insts), Var),
     skolemize(T, ST),
     Gamma2 = [[Var, ST] | Gamma].
 
@@ -269,6 +281,7 @@ extend_simple(env(Gamma, Overs, Insts), Var, T, env(Gamma2, Overs, Insts)) :-
 % forall introduction
 
 extend(env(Gamma, Overs, Insts), Var, T, env(Gamma2, Overs, Insts)) :-
+    not_defined(env(Gamma, Overs, Insts), Var),
     skolemize(T, forall(Schemes, ST)),
     free_env_vars(Gamma, GVs),
     free_type_vars(ST, FreeTVs),
@@ -358,19 +371,8 @@ gen_over_vars([constraint(Op, OpT) | Constraints], [Var | Vars]) :-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% replace_over_defun
-
-replace_over_defun(Env, Defun, Defun2) :-
-    Defun = defun(Fun, Arg, ArgT, Exp, ExpT),
-    create_arrow_type(ArgT, ExpT, DefunT),
-    get_type_schemes(DefunT, Schemes),
-    get_constraint_set(Schemes, Constraints),
-    gen_over_vars(Constraints, OverVars),
-    replace_over_vars(OverVars, Defun, Defun2).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% lookup/3
+% lookup/3 attempts to find a variable in the envrionment, first in the set of
+% overloaded operators and then in the typothesis.
 %
 % forall elimination
 
@@ -400,7 +402,7 @@ lookup_scheme(Var, env([_ | Tail], Overs, Insts), Type) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % lookup_inst/4
 
-lookup_inst(Op, OpT, [inst(Op, InstT, InstName) | Insts], InstName) :- !.
+lookup_inst(Op, OpT, [inst(Op, OpT, InstName) | Insts], InstName) :- !.
 lookup_inst(Op, OpT, [_ | Insts], InstName) :-
     lookup_inst(Op, OpT, Insts, InstName).
 
@@ -556,6 +558,7 @@ init_gamma([
     ['/float', forall([], arrow(float, arrow(float, float)))],
 
     % list
+    ['nil',  forall([Tl], list(Tl))],
     ['nil?', forall([Tn], arrow(list(Tn), bool))],
     ['cons', forall([Tc], arrow(Tc, arrow(list(Tc), list(Tc))))],
     ['head', forall([Th], arrow(list(Th), Th))],

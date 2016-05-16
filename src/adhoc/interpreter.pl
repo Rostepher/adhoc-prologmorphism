@@ -40,6 +40,7 @@ init_global_env([
     ['/float', prim('/float')],
 
     % list
+    ['nil',  nil],
     ['nil?', prim('nil?')],
     ['cons', prim('cons')],
     ['head', prim('head')],
