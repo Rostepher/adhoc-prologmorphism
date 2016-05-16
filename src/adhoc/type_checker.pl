@@ -90,11 +90,6 @@ judge_type(Env, apply(Exp, Arg), Apply, ApplyT, Env) :-
     Apply = apply(Exp2, Arg2).
 
 
-% nil
-% judge_type(Env, nil, nil, forall([scheme(Tn, [])], list(Tn)), Env).
-% judge_type(Env, nil, nil, list(_T), Env).
-
-
 % lists
 judge_type(Env, cons(Head, Tail), Cons, list(T), Env3) :-
     judge_type(Env,  Head, Head2, T, Env2),
@@ -324,7 +319,6 @@ replace_over_var(Over, OverT, apply(Exp, Arg), Apply) :-
     replace_over_var(Over, OverT, Arg, Arg2),
     Apply = apply(Exp2, Arg2).
 
-replace_over_var(_, _, nil, nil).
 replace_over_var(Over, OverT, cons(Head, Tail), Cons) :-
     replace_over_var(Over, OverT, Head, Head2),
     replace_over_var(Over, OverT, Tail, Tail2),
@@ -420,7 +414,8 @@ type_from_scheme(forall(TVs, T), FreshT) :-
 % fresh_vars
 
 fresh_vars([], []).
-fresh_vars([X | Xs], [Y | Ys]) :- fresh_vars(Xs, Ys).
+fresh_vars([scheme(Var, _) | Schemes], [FreshVar | FreshVars]) :-
+    fresh_vars(Schemes, FreshVars).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -558,11 +553,11 @@ init_gamma([
     ['/float', forall([], arrow(float, arrow(float, float)))],
 
     % list
-    ['nil',  forall([Tl], list(Tl))],
-    ['nil?', forall([Tn], arrow(list(Tn), bool))],
-    ['cons', forall([Tc], arrow(Tc, arrow(list(Tc), list(Tc))))],
-    ['head', forall([Th], arrow(list(Th), Th))],
-    ['tail', forall([Tt], arrow(list(Tt), list(Tt)))]
+    ['nil',  forall([scheme(Tl, [])], list(Tl))],
+    ['nil?', forall([scheme(Tn, [])], arrow(list(Tn), bool))],
+    ['cons', forall([scheme(Tc, [])], arrow(Tc, arrow(list(Tc), list(Tc))))],
+    ['head', forall([scheme(Th, [])], arrow(list(Th), Th))],
+    ['tail', forall([scheme(Tt, [])], arrow(list(Tt), list(Tt)))]
 ]).
 
 
