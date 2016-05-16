@@ -24,6 +24,7 @@ is_keyword(Codes) :- memberchk(Codes, [
     % keywords
     "defun",
     "defvar",
+    "forall",
     "if",
     "lambda",
     "let",
@@ -47,14 +48,16 @@ identr([])     --> [].
 
 keyword(K) --> ident(K), { is_keyword(K) }.
 
-symbol(lparen)    --> "(".
-symbol(rparen)    --> ")".
-symbol(lbracket)  --> "[".
-symbol(rbracket)  --> "]".
-symbol(comma)     --> ",".
-symbol(arrow)     --> "->".
-symbol(colon)     --> ":".
-symbol(semicolon) --> ";".
+symbol(open_paren)    --> "(".
+symbol(close_paren)   --> ")".
+symbol(open_bracket)  --> "[".
+symbol(close_bracket) --> "]".
+symbol(comma)         --> ",".
+symbol(dot)           --> ".".
+symbol(arrow)         --> "->".
+symbol(fat_arrow)     --> "=>".
+symbol(colon)         --> ":".
+symbol(semicolon)     --> ";".
 
 % float must come before int
 token(float(Float)) --> dcg_basics:float(Float).

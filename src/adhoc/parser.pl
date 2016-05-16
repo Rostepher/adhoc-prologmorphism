@@ -9,12 +9,12 @@
 % dgc helper predicates
 
 :- meta_predicate brackets(//, ?, *).
-brackets(Goal) --> [lbracket], Goal, [rbracket].
-brackets(Goal) --> [lbracket], brackets(Goal), [rbracket].
+brackets(Goal) --> [open_bracket], Goal, [close_bracket].
+brackets(Goal) --> [open_bracket], brackets(Goal), [close_bracket].
 
 :- meta_predicate parens(//, ?, *).
-parens(Goal) --> [lparen], Goal, [rparen].
-parens(Goal) --> [lparen], parens(Goal), [rparen].
+parens(Goal) --> [open_paren], Goal, [close_paren].
+parens(Goal) --> [open_paren], parens(Goal), [close_paren].
 
 :- meta_predicate optional_parens(//, ?, *).
 optional_parens(Goal) --> Goal.
@@ -50,33 +50,40 @@ form(Exp)  --> expression(Exp).
 
 % variable
 definition(defvar(var(Var), Exp)) -->
-    [lparen, defvar],
-    [ident(Var)],
-    expression(Exp),
-    [rparen].
+    parens((
+        [defvar, ident(Var)],
+        expression(Exp)
+    )).
 
 % function
-definition(defun(var(Fun), Args, Exp, ExpT)) -->
-    [lparen, defun],
-    [lparen, ident(Fun)],
-    formals(Args),
-    [colon],
-    type(ExpT),
-    [rparen],
-    expression(Exp),
-    [rparen].
+definition(defun(var(Fun), Schemes, Args, Exp, ExpT)) -->
+    parens((
+        [defun, ident(Fun)],
+        optional_parens((
+            optional_type_schemes(Schemes),
+            parens(formals(Args)),
+            [arrow],
+            type(ExpT)
+        )),
+        expression(Exp)
+    )).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % overloading
 
-overload(over(var(Op))) --> [lparen, over, ident(Op), rparen].
+overload(over(var(Op))) --> parens([over, ident(Op)]).
 
-instance(inst(var(Op), Type, Exp)) -->
-    [lparen, inst],
-    parens(variable([var(Op), Type])),
-    expression(Exp),
-    [rparen].
+instance(inst(var(Op), OpSchemes, OpT, Exp)) -->
+    parens((
+        [inst],
+        parens((
+            [ident(Op), colon],
+            optional_type_schemes(OpSchemes),
+            type(OpT)
+        )),
+        expression(Exp)
+    )).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -90,25 +97,28 @@ expression(var(Var)) --> [ident(Var)].
 
 % if
 expression(if(Cond, Then, Else)) -->
-    [lparen, if],
-    expression(Cond),
-    expression(Then),
-    expression(Else),
-    [rparen].
+    parens((
+        [if],
+        expression(Cond),
+        expression(Then),
+        expression(Else)
+    )).
 
 % lambda
 expression(lambda(Vars, Body)) -->
-    [lparen, lambda],
-    formals(Vars),
-    expression(Body),
-    [rparen].
+    parens((
+        [lambda],
+        parens(formals(Vars)),
+        expression(Body)
+    )).
 
 % let
 expression(let(Vals, Body)) -->
-    [lparen, let],
-    bindings(Vals),
-    expression(Body),
-    [rparen].
+    parens((
+        [let],
+        bindings(Vals),
+        expression(Body)
+    )).
 
 % apply
 expression(Apply) --> application(Apply).
@@ -125,21 +135,15 @@ variable([var(Var), T]) -->
     [ident(Var), colon],
     type(T).
 
-type(T)             --> parens(type(T)).
-type(T)             --> [ident(T)].
-type(list(T))       --> brackets([ident(T)]).
-type(arrow(T1, T2)) --> parens(type(T1)), [arrow], type(T2).
-type(arrow(T1, T2)) --> [ident(T1), arrow], type(T2).
-
-% constraint([Con]) --> [].
-
 variables([Var]) --> parens(variable(Var)).
 variables([Var | Vars]) -->
     parens(variable(Var)),
     variables(Vars).
 
-formals([Var]) --> parens(variable(Var)).
-formals(Vars)  --> parens(variables(Vars)).
+formals([Var]) --> variable(Var).
+formals([Var | Vars]) -->
+    parens(variable(Var)),
+    formals(Vars).
 
 value([var(Var), Exp]) -->
     [ident(Var)],
@@ -154,11 +158,53 @@ bindings([Val]) --> parens(value(Val)).
 bindings(Vals)  --> parens(values(Vals)).
 
 application(apply(Exp, Args)) -->
-    [lparen],
-    expression(Exp),
-    expressions(Args),
-    { \+ Args = [] },
-    [rparen].
+    parens((
+        expression(Exp),
+        expressions(Args),
+        { \+ Args = [] }
+    )).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% types
+
+type(arrow(T1, T2)) --> type_literal(T1), arrow_type(T2).
+type(arrow(T1, T2)) --> parens(type(T1)), arrow_type(T2).
+type(T)             --> type_literal(T).
+type(T)             --> parens(type(T)).
+
+type_literal(T)       --> [ident(T)].
+type_literal(list(T)) --> brackets([ident(T)]).
+
+arrow_type(T) --> [arrow], optional_parens(type(T)).
+
+constraint(constraint(var(Op), OpT)) -->
+    [ident(Op), colon],
+    type(OpT).
+
+constraints([Con | Cons]) -->
+    parens(constraint(Con)),
+    constraints(Cons).
+constraints([Con]) -->
+    optional_parens(constraint(Con)).
+
+type_scheme(scheme(Alpha, PiAlpha)) -->
+    parens((
+        [forall, ident(Alpha)],
+        optional_parens(constraints(PiAlpha))
+    )).
+type_scheme(scheme(Alpha, [])) -->
+    parens([forall, ident(Alpha)]).
+
+type_schemes([Scheme | Schemes]) -->
+    type_scheme(Scheme),
+    type_schemes(Schemes).
+type_schemes([Scheme]) --> type_scheme(Scheme).
+
+optional_type_schemes(Schemes) -->
+    type_schemes(Schemes),
+    [fat_arrow].
+optional_type_schemes([]) --> [].
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -171,10 +217,10 @@ constant(float(Float)) --> [float(Float)].
 constant(List)         --> list(List).
 
 list(cons(Head, Tail)) -->
-    [lbracket],
-    expression(Head),
-    list_tail(Tail),
-    [rbracket].
+    brackets((
+        expression(Head),
+        list_tail(Tail)
+    )).
 list(nil) --> brackets([]).
 
 list_tail(cons(Head, Tail)) -->
@@ -199,11 +245,11 @@ transform(defvar(var(Var), Exp), defvar(var(Var), Exp2)) :-
     transform(Exp, Exp2).
 
 % defun (function)
-transform(defun(var(Fun), [[var(Arg), ArgT]], Exp, ExpT),
-        defun(var(Fun), var(Arg), ArgT, Exp2, ExpT)) :-
+transform(defun(var(Fun), Schemes, [[var(Arg), ArgT]], Exp, ExpT),
+        defun(var(Fun), Schemes, var(Arg), ArgT, Exp2, ExpT)) :-
     transform(Exp, Exp2).
-transform(defun(var(Fun), [[var(Arg), ArgT] | Args], Exp, ExpT),
-        defun(var(Fun), var(Arg), ArgT, Lambda, RetT)) :-
+transform(defun(var(Fun), Schemes, [[var(Arg), ArgT] | Args], Exp, ExpT),
+        defun(var(Fun), Schemes, var(Arg), ArgT, Lambda, RetT)) :-
     defun_args_type(Args, ExpT, RetT),
     transform_lambda(Args, Exp, Lambda).
 
@@ -211,7 +257,8 @@ transform(defun(var(Fun), [[var(Arg), ArgT] | Args], Exp, ExpT),
 transform(over(var(Op)), over(var(Op))).
 
 % instance
-transform(inst(var(Op), Type, Exp), inst(var(Op), Type, Exp2)) :-
+transform(inst(var(Op), OpSchemes, OpT, Exp),
+        inst(var(Op), forall(OpSchemes, OpT), Exp2)) :-
     transform(Exp, Exp2).
 
 % if
