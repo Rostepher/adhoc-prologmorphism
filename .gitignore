@@ -1,4 +1,4 @@
-doc/*.pdf
+doc/**/*.pdf
 
 ### LaTeX ###
 *.acn
