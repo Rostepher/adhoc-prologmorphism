@@ -8,6 +8,7 @@
 \usepackage{hyperref}
 \usepackage{listings}
 % \usepackage{parskip}  % no-indent para
+\usepackage{amsmath}
 \usepackage{amssymb}  % number sets
 \usepackage{syntax}   % (E)BNF
 
@@ -24,6 +25,7 @@
 \command{true,false}                                    % literals
 \command{apply,closure,defun,defvar,if,lambda,let,prim} % keywords
 \command{cons,nil}                                      % lists
+\command{over,inst}                                     % over and inst
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -58,15 +60,22 @@ implementation details of adhoc polymorphism are explained in detail.
 
 \section{Syntax}
 
+The syntax for the Adhoc language is heavily inspired by Scheme and Typed
+Racket. The language features typical Lisp S-Expressions with a few select infix
+operators for types.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Lexical Structure
 
 \subsection{Lexical Structure}
 
-The lexical structure of Adhoc are simple. The only valid characters in the
+The lexical structure of Adhoc is simple. The only valid characters in the
 language are those representable in ASCII. Identifiers can contain a mixture of
-special character and alpha-numeric. The lexical specification is denoted using
-EBNF form.
+special character and alpha-numeric. A more detailed lexical specification is
+denoted below using Extended Bacus-Naur Form. It should be noted that
+identifiers in the lanugage can contain a number of ``special'' characters,
+including those typically associated with binary operators. This feature is
+intentionally, so that users can define and overload typical operators.
 
 % float styling
 \floatstyle{boxed}
@@ -113,8 +122,13 @@ EBNF form.
 \subsection{Grammar}
 
 The grammar for the language \textbf{adhoc} is represented below in
-EBNF form. It translates to a simplified AST used in the type judgements
-and operational semantics below.
+Extended Backus-Naur Form. An interpreter implementing the language should
+construct a parse tree from input and then transform the tree to a simplified
+Abstract Syntax Tree which is then used in the type judgements and operational
+semantics below. The Abstract Syntax Tree does not support multi-argument
+function declarations with \verb|defun| or \verb|lambda|, but a simple
+transformation can construct nested lambda expressions from a mult-argument
+function declaration.
 
 % float styling
 \floatstyle{boxed}
@@ -133,7 +147,7 @@ and operational semantics below.
     % \alt <overload>
     % \alt <instance>
 
-<definition> ::= "(" "defun" "(" <ident> <formals> ":" <type> ")" <expression> ")"
+<definition> ::= "(" "defun" <ident> "(" ":" (<scheme>? "=>")? <formals> "->" <type> ")" <expression> ")"
     \alt "(" "defvar" <ident> <expression> ")"
 
 % <overload> ::= "(" "over" <ident> ")"
@@ -153,6 +167,8 @@ and operational semantics below.
     \alt "(" <ident> ")"
     \alt <ident> "->" <type>
 
+<scheme> ::= "(" ("forall" <ident>)? ")"
+
 <variable> ::= <ident> ":" <type>
 
 <formal> ::= "(" <variable> ")"
@@ -168,14 +184,6 @@ and operational semantics below.
 <application> ::= "(" <expression> <expression>+ ")"
 \end{grammar}
 \end{figure}
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Translation
-
-\subsection{Translation}
-
-TODO
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -234,20 +242,20 @@ judgements.
 % literals
 \[
     % bool
-    \inference[(BOOL) ]{}{\Gamma |- \<true> : bool}
+    \inference[BOOL ]{}{\Gamma |- \<true> : bool}
     \hspace{1em}
-    \inference{}{\Gamma |- \<false> : bool}[(BOOL)]
+    \inference{}{\Gamma |- \<false> : bool}[BOOL]
 \]
 \[
     % int
-    \inference[(INT)]{n \in \mathbb{Z}}{\Gamma |- n : int}
+    \inference[INT]{n \in \mathbb{Z}}{\Gamma |- n : int}
     \hspace{1em}
     % float
-    \inference{n \in \mathbb{R}}{\Gamma |- n : float}[(FLOAT)]
+    \inference{n \in \mathbb{R}}{\Gamma |- n : float}[FLOAT]
 \]
 \[
     % nil
-    \inference[(NIL)]{}{\Gamma |- \<nil> : list_\tau}
+    \inference[NIL]{}{\Gamma |- \<nil> : list_\tau}
     \hspace{1em}
     % cons
     \inference
@@ -256,7 +264,7 @@ judgements.
             \Gamma |- N : \tau
         }
         {\Gamma |- \<cons>(M, N) : list_\tau}
-        [(LIST)]
+        [CONS]
 \]
 \end{figure}
 
@@ -268,21 +276,22 @@ following judgements.
 \small
 \[
     % variable
-    \inference[(TAUT)]{}{\Gamma |- x : \sigma}
+    \inference[TAUT]{}{\Gamma |- x : \sigma}
     \hspace{2em}
     % if
     \inference
         {
             \Gamma |- M_1 : bool \\
-            \Gamma |- M_2 : \sigma \\
-            \Gamma |- M_3 : \sigma
+            \Gamma |- M_2 : \tau \\
+            \Gamma |- M_3 : \tau
         }
-        {\Gamma |- \<if>(M_1, M_2, M_3) : \sigma}[(IF)]
+        {\Gamma |- \<if>(M_1, M_2, M_3) : \tau}
+        [IF]
 \]
 
 \[
     % let
-    \inference[(LET)]
+    \inference[LET]
         {
             \Gamma |- M : \tau \\
             \Gamma, M : \tau |- N : \tau'
@@ -293,25 +302,25 @@ following judgements.
     \inference
         {\Gamma, x : \tau |- M : \tau'}
         {\Gamma |- \<lambda>(x, \tau, N) : \tau'}
-        [(LAMBDA)]
+        [LAMBDA]
 \]
 
 \[
     % defun
-    \inference[(DEFUN)]
-        {\Gamma, x : \sigma, M : \tau' |- f : \tau -> \tau'}
+    \inference[DEFUN]
+        {\Gamma, x : \forall \alpha . \tau, M : \tau' |- f : \tau -> \tau'}
         {\Gamma |- \<defun>(f, x, \tau, M, \tau') : \tau -> \tau'}
     \hspace{2em}
     % defvar
     \inference
         {\Gamma |- M : \tau}
         {\Gamma |- \<defvar>(x, M) : \tau}
-        [(DEFVAR)]
+        [DEFVAR]
 \]
 
 \[
     % apply
-    \inference[(APPLY)]
+    \inference[APPLY]
         {
             \Gamma |- N : \tau \\
             \Gamma |- M : \tau -> \tau'
@@ -328,106 +337,282 @@ following judgements.
 
 The \textbf{adhoc} langauge has clearly defined operational semantics.
 To allow for self-recursive functions a global environment $G$ is
-threaded through. The operational semantics for the language are as
-follows:
+threaded through. The operational semantics for literals is as follows:
 
+\begin{figure}[H]
+\centering
+\small
 % boolean literals
 
 \[
-    \inference{}{(\<true>, \rho, G) \Downarrow (\<true>, G)}
+    \inference[BOOL]{}{(\<true>, \rho, G) \Downarrow (\<true>, G)}
     \hspace{1em}
-    \inference{}{(\<false>, \rho, G) \Downarrow (\<false>, G)}
+    \inference{}{(\<false>, \rho, G) \Downarrow (\<false>, G)}[BOOL]
 \]
 
-% numbers
-\[\inference{}{(n, \rho, G) \Downarrow (n, G')}\]
+\[
+    % int
+    \inference[INT]{n \in \mathbb{Z}}{(n, \rho, G) \Downarrow (n, G)}
+    \hspace{1em}
+    % float
+    \inference{n \in \mathbb{R}}{(n, \rho, G) \Downarrow (n, G)}[FLOAT]
+\]
 
 % variables
-\[\inference{$lookup$(x, G) = v}{(x, \rho, G) \Downarrow (v, G')}\]
-
-% if
-\[
-\inference
-	{
- 	    (M_1, \rho, G) \Downarrow (\<true>, G) \\
-        (M_2, \rho, G') \Downarrow (v, G'')
-    }
-	{(\<if>(M_1, M_2, M_3), \rho, G) \Downarrow (v, G'')}
-\hspace{1em}
-\inference
-	{
- 	    (M_1, \rho, G) \Downarrow (\<false>, G) \\
-        (M_3, \rho, G') \Downarrow (v, G'')
-	}
-	{(\<if>(M_1, M_2, M_3), \rho, G) \Downarrow (v, G'')}
-\]
-
-% let
-\[\inference
- 	{
-     	(M_1, \rho, G) \Downarrow (v, G') \\
-        (M_2, \rho[x \mapsto v], G') \Downarrow (v', G'')
-    }
- 	{(\<let>(x, M_1, M_2), \rho, G) \Downarrow (v', G'')}
-\]
-
-% lambda
-\[\inference
- 	{}
-    {(\<lambda>(x, t_x, M), \rho, G) \Downarrow (\<closure>(x, M, \rho), G)}
-\]
-
-% defun
-\[\inference
- 	{}
- 	{(\<defun>(f, x, t_x, M, t_M), \rho, G) \Downarrow ($_$, \rho, G[f \mapsto \<closure>(x, M, \rho)])}
-\]
-
-% defvar
-\[\inference
- 	{}
-    {(\<defvar>(x, M), \rho, G) \Downarrow ($_$, \rho, G[x \mapsto M])}
-\]
-
-% call closure
-\[\inference
- 	{
-     	(M, \rho, G) \Downarrow (\<closure>(x, M_c,\rho'), G') \\
-      	(N, \rho, G') \Downarrow (v, \rho, G'') \\
-      	(M_c, \rho'[x \mapsto v], G'') \Downarrow (v', G''')
-     }
-     {(\<apply>(M, N), \rho, G) \Downarrow (v', G''')}
-\]
-
-% call primitive
-\[\inference
- 	{
-     	(M, \rho, G) \Downarrow (\<prim>(f), G') \\
-      	(N, \rho, G') \Downarrow (v, \rho, G'') \\
-  	    \delta(f, v) = v'
-     }
- {(\<apply>(M, N), \rho, G) \Downarrow (v', G'')}
-\]
+\[\inference[VAR]{$lookup$(x, G) = v}{(x, \rho, G) \Downarrow (v, G')}\]
 
 % nil
-\[\inference{}{(\<nil>(\tau), \rho, G) \Downarrow (\<nil>(\tau), G)}\]
+\[
+    \inference[NIL]{}{(\<nil>(\tau), \rho, G) \Downarrow (\<nil>(\tau), G)}
+    \hspace{1em}
+    % cons
+    \inference
+        {
+            (M, \rho, G) \Downarrow (v', G') \\
+            (N, \rho, G) \Downarrow (v'', G'')
+        }
+        {(\<cons>(M, N), \rho, G) \Downarrow (\<cons>(v', v''), G)}
+        [CONS]
+\]
+\end{figure}
 
-% cons
-\[\inference
-    {
-        (M, \rho, G) \Downarrow (v', G') \\
-        (N, \rho, G) \Downarrow (v'', G'')
-    }
-    {(\<cons>(M, N), \rho, G) \Downarrow (\<cons>(v', v''), G)}
+
+The operational semantics for more complex expressions is as follows:
+
+\begin{figure}[H]
+\centering
+\small
+\[
+    % if
+    \inference
+        [IF]
+        {
+            (M_1, \rho, G) \Downarrow (\<true>, G) \\
+            (M_2, \rho, G') \Downarrow (v, G'')
+        }
+        {(\<if>(M_1, M_2, M_3), \rho, G) \Downarrow (v, G'')}
+    \hspace{1em}
+    \inference
+        {
+            (M_1, \rho, G) \Downarrow (\<false>, G) \\
+            (M_3, \rho, G') \Downarrow (v, G'')
+        }
+        {(\<if>(M_1, M_2, M_3), \rho, G) \Downarrow (v, G'')}
+        [IF]
 \]
 
+\[
+    % let
+    \inference
+        [LET]
+        {
+            (M_1, \rho, G) \Downarrow (v, G') \\
+            (M_2, \rho[x \mapsto v], G') \Downarrow (v', G'')
+        }
+        {(\<let>(x, M_1, M_2), \rho, G) \Downarrow (v', G'')}
+\]
+
+\[
+    % lambda
+    \inference
+        [LAMBDA]
+        {}
+        {(\<lambda>(x, t_x, M), \rho, G) \Downarrow (\<closure>(x, M, \rho), G)}
+\]
+
+\[
+    % defun
+    \inference
+        [DEFUN]
+        {}
+        {(\<defun>(f, x, t_x, M, t_M), \rho, G) \Downarrow ($_$, \rho, G[f \mapsto \<closure>(x, M, \rho)])}
+\]
+
+\[
+    % defvar
+    \inference
+        [DEFVAR]
+        {}
+        {(\<defvar>(x, M), \rho, G) \Downarrow ($_$, \rho, G[x \mapsto M])}
+\]
+
+\[
+    % apply closure
+    \inference
+        [APPLY]
+        {
+            (M, \rho, G) \Downarrow (\<closure>(x, M_c,\rho'), G') \\
+            (N, \rho, G') \Downarrow (v, \rho, G'') \\
+            (M_c, \rho'[x \mapsto v], G'') \Downarrow (v', G''')
+        }
+        {(\<apply>(M, N), \rho, G) \Downarrow (v', G''')}
+    \hspace{1em}
+    % apply primitive
+    \inference
+        {
+            (M, \rho, G) \Downarrow (\<prim>(f), G') \\
+            (N, \rho, G') \Downarrow (v, \rho, G'') \\
+            \delta(f, v) = v'
+        }
+        {(\<apply>(M, N), \rho, G) \Downarrow (v', G'')}
+        [APPLY]
+\]
+\end{figure}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Extensions for Adhoc-Polymorphism
 
 \section{Extensions for Adhoc-Polymorphism}
 
-TODO
+The Adhoc language bases it's implementation of adhoc polymorphism on the paper
+\textit{``A second look at overloading''} by Martin Odersky, Philip Wadler and
+Martin Wehr. To learn more about the rationale for this more granular approach
+to adhoc polymorphism over type classes, read the paper.
 
+To extend the base language to support adhoc polymorphism, two new constructs
+must be introduced, overload declarations and instance declarations. Overload
+declarations allow users to declare an operator or function identifier as
+overloadable for the duration of the program. Instance declarations allow users
+to declare an instance for an overloadable operator or function with an explicit
+type and possible constraints, which maps to a concrete expression.
+
+Type schemes must be changed to allow for constraints, represented as $\pi_\alpha$,
+which translates to a list of overloaded operators and their types, which must be
+of the form $\alpha \rightarrow \tau$, where $\alpha$ is the same for all
+operators and $\tau$ can contain uses of $\alpha$.
+
+\[\pi_\alpha = o_1 : \alpha \rightarrow \tau_1, \dots, o_n : \alpha \rightarrow \tau_n\]
+
+Types are now of the form
+
+\begin{figure}[H]
+\small
+\begin{flalign*}
+    \tau & = \text{bool} \\
+         & = \text{float} \\
+         & = \text{int} \\
+         & = \text{list}_\tau \\
+         & = \tau \rightarrow \tau
+\end{flalign*}
+\begin{flalign*}
+    \sigma & = \tau \\
+           & = \forall \alpha . \pi_\alpha \Rightarrow \sigma
+\end{flalign*}
+\end{figure}
+
+The syntax for the language changes a bit, the \verb|<scheme>| production rule
+allows for type constraints and two new types of declarations are introduced for
+\verb|over| and \verb|inst| declarations.
+
+\begin{figure}[H]
+\small
+\setlength{\grammarindent}{8em}
+\renewcommand{\grammarlabel}[2]{\synt{#1}\hfill#2}
+\begin{grammar}
+<form> ::= <definition>
+    \alt <expression>
+    \alt <overload>
+    \alt <instance>
+
+<overload> ::= "(" "over" <ident> ")"
+
+<instance> ::= "(" "inst" <ident> "(" ":" (<scheme>? "=>")? <type> ")" <expression> ")"
+
+<scheme> ::= "(" "forall" <ident> <constraint>?")"
+
+<constraint> ::= "(" <ident> ":" <type> ")"
+\end{grammar}
+\end{figure}
+
+% The type environment must also be changed into a 3 pair containing the typothesis
+% $\Gamma$, a mapping of overloaded instances and a mapping of instance names to
+% unique identifier. When an \verb|over| declaration is evaluated, it should be
+% added to the type environment, if that operator has not already been declared as
+% overloaded. When an \verb|inst| declarationis evaluated, it should be entered
+% into the mapping from overloaded operator to instances and a new, unique identifier
+% should
+
+Lastly, the type judgements are modified to not only infer and enforce types,
+but also transform the Abstract Syntax Tree so as to eliminate uses of \verb|inst|
+declarations and constraints. The inference rules for literals and the operational
+semantics remain unchanged. Below is the modified type judgements and transformations.
+All unlisted type judgements are unchanged and transform into themselves.
+
+\begin{figure}[H]
+\centering
+\small
+\[
+    % lambda
+    \inference
+        [LAMBDA]
+        {
+            \Gamma, x : \tau |- M : \tau'
+        }
+        {
+            \Gamma |- \<lambda>(x, \tau, N) : \tau'
+            \succ \<lambda>(x, \tau, N)
+        }
+\]
+
+\[
+    % defun
+    \inference
+        [DEFUN]
+        {
+            \Gamma, x : \forall \alpha . \tau, M : \tau' |- f : \tau -> \tau'
+        }
+        {
+            \Gamma |- \<defun>(f, x, \tau, M, \tau') : \tau -> \tau'
+            \succ \<defun>(f, x, \tau, M, \tau')
+        }
+\]
+
+\[
+    % forall introduction
+    \inference
+        [($\forall$I)]
+        {
+            \Gamma, (o_1 : \alpha \rightarrow \tau_1, \dots, o_n : \alpha \rightarrow \tau_n) |- e : \sigma \succ e^{*}
+        }
+        {
+            \Gamma |- e : \forall \alpha . (o_1 : \alpha \rightarrow \tau_1, \dots, o_n : \alpha \rightarrow \tau_n) \Rightarrow \sigma
+            \succ \<lambda>(x_{\tau_1}, \ldots, \<lambda>(x_{\tau_n}, e^{*}))
+        }
+\]
+
+\[
+    % forall elimination
+    \inference
+        [($\forall$E)]
+        {
+            \Gamma |- e : \forall \alpha . (o_1 : \alpha \rightarrow \tau_1, \dots, o_n : \alpha \rightarrow \tau_n) |- e : \sigma \succ e^{*} \\
+            \Gamma |- o_i : [\tau/\alpha]\tau_i \succ e_{i}^{*} (i = 1, \ldots, n)
+        }
+        {
+            \Gamma |- e : [\tau/\alpha]\sigma
+            \succ \<apply>(e^{*}, \<apply>(e_{1}^{*}, \ldots, e_{n}^{*}))
+        }
+\]
+
+\[
+    % inst
+    \inference
+        [INST]
+        {
+            o : \sigma_{\tau'} \in \Gamma \Rightarrow \tau \neq \tau' \\
+            \Gamma |- e : \sigma_{\tau} \succ e^{*}
+        }
+        {
+            \Gamma |- \<inst>(o, \sigma_{\tau}, e)
+            \succ \<defvar>(o,u_{\sigma_{\tau}}, e^{*})
+        }
+\]
+\end{figure}
+
+The above type judgements present the typical dictionary translation, which
+transforms unique instances of overloaded operators into unique variable
+bindings. The name of each is dependent on the operator and the type signature.
+All type constraints associated with an expression are transformed into nested
+lambdas that take arguments for each overloaded operator in the constraints.
 
 \end{document}
