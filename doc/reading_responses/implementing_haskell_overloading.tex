@@ -1,0 +1,65 @@
+\documentclass[a4paper,fleqn,notitlepage]{scrartcl}
+
+\usepackage{caption}
+\captionsetup[figure]{font=small,skip=0pt}
+
+\usepackage{float}
+\floatstyle{boxed} 
+\restylefloat{figure}
+
+\title{Reading Response}
+\subtitle{\normalfont ``Implementing Haskell Overloading'' by Lennnart Augustsson}
+\author{Ross Bayer}
+\date{March 4, 2016}
+
+\begin{document}
+
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Lennart Augustsson's paper, ``Implementing Haskell Overloading'' describes a
+number of optimizations for the efficient implementation of adhoc-polymorphism
+in the context of the Haskell programming language. The paper also describes a 
+few other miscellaneous optimizations for improving various aspects of the
+language. This paper builds on Wadler and Blott's ``Making adhoc-polymorphism
+less ad hoc'' by modifying the type class implementation previously proposed.
+All the optimizations mentioned are not the author's creations, but rather
+this paper is a compilation of existing optimization strategies with
+modifications for the Haskell programming language, that when taken together
+can provide a considerable speed increase.
+
+Type classes can be implemented as a simple translation step that transforms
+functions with type class constraints into functions with additional explicit
+arguments for passing some data structure that contains the concrete
+implementations of a type classes associated functions for a given type.
+The data structure used can be a tuple of $n$ elements, where $n$ is the number
+of functions in the type class, or a record (also called a dictionary) with
+fields for each function. Helper functions to access each function implementation
+are necessary. This paper assumes that these ``dictionaries'' are implemented as
+tuples of $n$ elements, rather than records.
+
+Augustsson points out that a naive translation step is inefficient. Passing around
+dictionaries can be costly and lead to performance degradation. He asserts that
+a compiler can utilize a number of optimizations to improve performance. The
+optimizations most relevant to the direct implementation of overloading are
+modifying the representation of the dictionaries and specialization.
+
+Augustsson provides a table at the end of this paper that presents execution
+times for the various optimizations described when run on a few benchmarks.
+The conclusions that can be drawn from the measurements is that if the various
+strategies described in this paper are utilized then the execution of the
+program can be improved somewhere between moderately and dramatically. The table
+is incomplete however, with a large portion of combinations left untested.
+As a reader, I am left wondering if the tests are statistically significant?
+What hardware were the tests executed on? In general, the results seem mostly
+informal and only useful as a general notion of possible performance increases.
+
+Overall this paper was noteworthy, not because the ideas presented in it were
+new and novel, but rather because it presented a number of optimizations that
+could be used in a Haskell compiler as a cohesive document. It also showed,
+albeit informally, that the execution times for the various optimizations
+could make a dramatic difference, if the programmer has not carefully inserted
+non-overloaded signatures.
+
+\end{document}

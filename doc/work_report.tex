@@ -1,0 +1,318 @@
+\documentclass[11pt,a4paper]{article}
+
+% imports
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{listings}
+% \usepackage{parskip}  % no-indent para
+\usepackage{amssymb}  % number sets
+\usepackage{syntax}   % (E)BNF
+
+\usepackage{geometry}
+\geometry{letterpaper,portrait,margin=1in}
+
+% (E)BNF
+% \usepackage{backnaur}
+% \renewcommand{\bnfpo}{::=}
+
+% judgements
+\usepackage{semantic}
+\reservestyle{\command}{\textbf}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Title
+
+\title{Independent Study Work Report}
+\author{Ross Bayer}
+
+\begin{document}
+\maketitle
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Introduction
+
+The purpose of this document is to outline week-by-week the work I compeleted
+for my independent study on ``Adhoc Polymorphism in Hindley-Milner Type
+Systems''. Descriptions for each week chronicle my general work and thought
+process.
+
+\section*{Week 1}
+
+Knowing that the project for this independent study was to be implemented in the
+declarative, logic language Prolog, I spent time reading through a number of
+tutorials and other educational materials to re-familiarize myself with the
+concepts and general practices of the language. I had only previously used Prolog
+in Professor Nunes-Harwitt's Programming Language Concepts (PLC) class a year
+prior, but I hadn't developed a deep understanding of first-order predicate
+logic and unification. The primary online resources I used were
+\href{http://learnprolognow.org}{``Learn Prolog Now!''} and the SWI Prolog
+\href{http://swi-prolog.org}{documentation}.
+
+
+\section*{Week 2}
+
+Professor Nunes-Harwitt and I discussed the basic language I would be implementing
+and derived a set of operational semantics for the language. The language is based
+on the small language used in Professor Nunes-Harwitt's PLC class. The language
+is purely functional, featuring higher-order functions, function currying, and
+type inference. Below is the simple langauge definition that was fleshed out in
+our meeting, including the different types of expressions, types and
+lastly the rough operational semantics.
+
+% float styling
+\floatstyle{boxed}
+\restylefloat{figure}
+
+\begin{figure}[H]
+\small
+\setlength{\grammarindent}{6em}
+\begin{grammar}
+<exp> ::= $n$
+    \alt $x$
+    \alt if($M_1$, $M_2$, $M_3$)
+    \alt let($x$, $M$, $N$)
+    \alt defun($y$, $x$, $t_1$, $t_2$, $M$)
+    \alt defconst($x$, $M$)
+    \alt call($M$, $N$)
+
+<type> ::= int
+    \alt bool
+    \alt $\tau \rightarrow \tau$
+\end{grammar}
+\end{figure}
+
+The operational semantics shown below include a global environment, which is threaded
+through and allows for self-recursive functions. The semantics are very
+straight-forward and easy to translate into Prolog code.
+
+% judgement keywords
+\command{true,false}                                % literals
+\command{call,closure,defun,defconst,if,lambda,let} % keywords
+
+\begin{figure}[H]
+\centering
+% numbers
+\[\inference{}{(n, \rho, G) \Downarrow (n, G')}\]
+
+% variables
+\[\inference{$lookup$(x, G) = v}{(x, \rho, G) \Downarrow (v, G')}\]
+
+% if
+\[
+\inference
+	{
+ 	    (M_1, \rho, G) \Downarrow (\<true>, G) \\
+        (M_2, \rho, G') \Downarrow (v, G'')
+    }
+	{(\<if>(M_1, M_2, M_3), \rho, G) \Downarrow (v, G'')}
+\hspace{1em}
+\inference
+	{
+ 	    (M_1, \rho, G) \Downarrow (\<false>, G) \\
+        (M_3, \rho, G') \Downarrow (v, G'')
+	}
+	{(\<if>(M_1, M_2, M_3), \rho, G) \Downarrow (v, G'')}
+\]
+
+% let
+\[\inference
+ 	{
+     	(M_1, \rho, G) \Downarrow (v, G') \\
+        (M_2, \rho[x \mapsto v], G') \Downarrow (v', G'')
+    }
+ 	{(\<let>(x, M_1, M_2), \rho, G) \Downarrow (v', G'')}
+\]
+
+% lambda
+\[\inference
+ 	{}
+    {(\<lambda>(x, t_x, M), \rho, G) \Downarrow (\<closure>(x, M, \rho), G)}
+\]
+
+% defun
+\[\inference
+ 	{}
+ 	{(\<defun>(f, x, t_x, M, t_M), \rho, G) \Downarrow ($_$, \rho, G[f \mapsto \<closure>(x, M, \rho)])}
+\]
+
+% defvar
+\[\inference
+ 	{}
+    {(\<defconst>(x, M), \rho, G) \Downarrow ($_$, \rho, G[x \mapsto M])}
+\]
+
+% call closure
+\[\inference
+ 	{
+     	(M, \rho, G) \Downarrow (\<closure>(x, M_c,\rho'), G') \\
+      	(N, \rho, G') \Downarrow (v, \rho, G'') \\
+      	(M_c, \rho'[x \mapsto v], G'') \Downarrow (v', G''')
+     }
+     {(\<call>(M, N), \rho, G) \Downarrow (v', G''')}
+\]
+
+% % call primitive
+% \[\inference
+%  	{
+%      	(M, \rho, G) \Downarrow (\<prim>(f), G') \\
+%       	(N, \rho, G') \Downarrow (v, \rho, G'') \\
+%   	    \delta(f, v) = v'
+%      }
+%  {(\<apply>(M, N), \rho, G) \Downarrow (v', G'')}
+% \]
+\end{figure}
+
+I began the implementation of the basic interpreter, utilizing my code from PLC
+and the above specification.
+
+
+\section*{Week 3}
+
+For the third week I continued working on the implementation for the basic
+interpreter using the operational semantics above and my code from PLC. The
+translation from judgements to Prolog is exceptionally simple, almost a
+one-to-one translation. The only stumbling block was the handling of primitive
+functions in the interpreter. After discussing the problem with Professor
+Nunes-Harwitt, the following semantics was drafted to show the use of a $\delta$
+function to handle primitive definitions, while still preserving function
+currying.
+
+% judgement keywords
+\command{call,prim}
+
+\begin{figure}[H]
+\centering
+% delta
+\[
+    \inference
+    {
+        (M, \rho, G) \Downarrow (\<prim>(f), G') \\
+        (N, \rho, G') \Downarrow (v, G'') \\
+        \delta(f, v) = v'
+    }
+    {
+        (\<call>(M, N), \rho, G) \Downarrow (v', G')
+    }
+\]
+
+\end{figure}
+
+The $\delta$ function contains the complete definition of all primitive functions
+in the language. When invoked, it applys the value to the primitive function, and
+in my interpreter it either produces an output if all arguments have been successfully
+applied or produces another primitive function that remembers the already applied
+arguments.
+
+This week I also started working on a \LaTeX document that outlines the formal
+language definition. The document is meant to evolve over time to show the full
+syntax, typing rules, semantics and eventually the extensions to the base language
+for adhoc polymorphism.
+
+\section*{Week 4}
+
+Starting with the fourth week I began reading the papers listed in the syllabus.
+This week was \textit{``A Lanugage for Computational Algebra''} by Jenks and
+Trager. I produced a reading response, which should be attached to this document.
+
+In terms of the actual impelementation, I had in mind that the language would
+feature some more convinient syntax, rather than typing in raw Prolog terms,
+which had proven cumbersome and a little buggy with SWI-Prolog. I wanted to
+implement a full lexer and parser utilizing DGCs. I started working on a lexer,
+which I initially thought would require some form of regular expressions, but I
+soon realized that Prolog's Definite Clause Grammar (DCG) were much more powerful
+and provided all the functionality necessary to express both a lexer and parser.
+The lexer was mostly complete by the end of the week, after hours spent learning
+how to effectively use DCGs for transforming strings into a list of tokens.
+
+\section*{Week 5}
+
+In the fifth week, I read the paper \textit{``How to make ad-hoc polymorphism
+less ad hoc''} by Philip Wadler and Stephen Blott. I produced another reading
+response for this paper, which should be attached to this document.
+
+On the implementation side, I continued work on the front-end for the interpreter.
+I had the lexer complete, at least it sucessfully translated a stream of
+\textit{codes} into a list of tokens. I began working on the parser for the language,
+which meant I needed to commit to concrete syntax. I based the syntax on the Lisp
+family of lanugages, drawing inspiriation from Scheme and Typed Racket. By the
+end of the week, I had a portion of the grammar implemented using DCGs, but I wasn't
+fully satisfied with the ergonomics of the syntax.
+
+\section*{Week 6}
+
+For the sixth week I read the paper \textit{``Implementing Haskell Overloading''}
+by Lennart Augustsson. I proceeded to write a reading response for this paper,
+which sould be attached to this document.
+
+I continued implementing the parser and hunting down bugs this week. The parser
+was taking a more concrete shape
+
+\section*{Week 7}
+
+Week seven I read the paper \textit{``Type classes in Haskell''} by Cordelia Hall,
+Kenvin Hammond, Simon Peyton Jones and Philip Wadler. In general, the paper was
+very terse, filled to the brim with a lot of notation that I was unfarmiliar with.
+I struggeled to connect the dots with the ...
+
+\section*{Week 8}
+
+In week eight, I did not read another paper, but rather I spent more time trying
+to wrap my head around the terse \textit{``Type classes in Haskell''}. I produced
+a complete reading response for the paper in this week, which should be attached
+to this document.
+
+\section*{Week 9}
+
+In week nine, I read the last paper listed in the syllabus, \textit{``A second
+look at overloading''} by Martin Odersky, Philip Wadler and Martin Wehr. I then
+wrote a reading response, which should be attached to this document.
+
+TODO
+
+\section*{Week 10}
+
+Week ten was relatively hectic with other class work and tests. There was not
+much progress made on the interpreter
+
+TODO
+
+\section*{Week 11}
+
+For week eleven, after returning from spring break, I began implementing a
+solution for parametric polymorphism based on the code Professor Nunes-Harwitt
+provided me.
+
+\section*{Week 12}
+
+TODO
+
+\section*{Week 13}
+
+In week thirteen, I continued hunting down bugs with the base interpreter. A
+mildly infuriating bug was causing \verb|defun| and \verb|defvar| declarations
+to act differently when assigned to analogous function bodies.
+
+\section*{Week 14}
+
+
+
+\section*{Week 15}
+
+For week fifteen, I started devising and implementing the new, extended type
+environment which holds not only the typothesis $\Gamma$, but also a mapping
+of overloaded operators to instance declarations and a mapping of instances
+operators and type signatures to unique instance names. The new type
+environment required a lot of helper predicates to...
+
+\section*{Week 16}
+
+Week sixteen I spent time wrapping up the implementation of the interpreter. I
+
+\section*{Retrospective}
+
+\end{document}

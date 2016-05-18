@@ -1,5 +1,10 @@
 # Source files
-TEX_FILES=adhoc_language.tex work_report.tex
+TEX_FILES= \
+	a_language_for_computational_algebra.tex \
+	a_second_look_at_overloading.tex \
+	how_to_make_ad-hoc_polymorphism_less_ad_hoc.tex \
+	implementing_haskell_overloading.tex \
+	type_classes_in_haskell.tex
 
 # Binaries
 PDFLATEX=pdflatex

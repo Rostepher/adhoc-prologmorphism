@@ -1,0 +1,121 @@
+\documentclass[a4paper,fleqn,notitlepage]{scrartcl}
+
+\usepackage{caption}
+\captionsetup[figure]{font=small,skip=0pt}
+
+\usepackage{float}
+\floatstyle{boxed} 
+\restylefloat{figure}
+
+\title{Reading Response}
+\subtitle{\normalfont ``How to make {\it ad-hoc} polymorphism less {\it ad hoc}'' by Wadler \& Blott}
+\author{Ross Bayer}
+\date{February 26, 2016}
+
+\begin{document}
+
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In their paper ``How to make \textit{ad-hoc} polymorphism less \textit{ad hoc}'', 
+Wadler and Blott propose a new, general purpose method to introduce adhoc
+polymorphism to an existing Hindley-Milner type system. Wadler and Blott were
+unsatisfied with the existing strategies to handle ad-hoc polymorphism present
+in both Standard ML and the Miranda language. They propose a new language level
+construct known as a \textit{type class} which they demonstrate to be more
+flexible than any previously proposed implementation strategy.
+\textit{Type classes} were developed along-side the Haskell language, which 
+later popularized the idea.
+
+\textit{Type classes} represent a type-level construct in the language that
+defines a set of associated functions for one or more unspecified mono-types. An
+\textit{instance} of a \textit{type class} provides concrete definitions of
+each associated function for the specific mono-type(s). For example, the \verb|Eq|
+\textit{type class} presented in the paper, defines the \verb|(==)| function,
+used for equality testing. An implementation of the \verb|Eq| \textit{type class}
+for the mono-type \verb|Int| defines concretely how two integers should be
+tested for equality. The \verb|Eq| \textit{type class} is defined in Figure 1.
+
+\begin{figure}
+\caption{Definition of the \protect\texttt{Eq} class}
+\begin{verbatim}
+    
+    class Eq a where
+        (==) :: a -> a -> Bool
+    
+    instance Eq Int where
+        x == y = eqInt x y
+
+\end{verbatim}
+\end{figure}
+
+For those with experience in Haskell, the \verb|Eq| class should be
+familiar.
+
+According to Wadler and Blott, a \textit{type class} can then be used to define
+functions that are polymorphic over a \textit{type class}, such as the \verb|member|
+function in Figure 2. The \verb|member| function determines if a given element
+if a member of the given list, with the constraint that the mono-type \verb|a| is
+a member of the \textit{type class} \verb|Eq|.
+
+\begin{figure}
+\caption{Definition of the \protect\texttt{member} function}
+\begin{verbatim}
+    
+    member :: Eq a => [a] -> a -> Bool
+    member []     y = False
+    member (x:xs) y = (x == y) \/ member xs y
+
+\end{verbatim}
+\end{figure}
+
+Wadler and Blott also describe a translation step, which allows \textit{type classes}
+to be introduced to an existing Hindley-Milner type system. It translates a
+\textit{type class} into some form of dictionary that contains the concrete
+definitions of the associated functions. For example, Figure 3 demonstrates how the
+\verb|Eq| \textit{type class} would be translated and used in the definition of the
+\verb|member| function.
+
+\begin{figure}
+\caption{Translation of the \protect\texttt{Eq} class and \protect\texttt{member} function}
+\begin{verbatim}
+    
+    data EqD a = EqDict (a -> a -> Bool)
+    
+    eq (EqDict a) = a
+    
+    eqDInt :: EqD Int
+    eqDInt =  EqDict eqInt
+    
+    eqDChar :: EqD Char
+    eqDChar =  EqDict eqChar
+    
+    member :: EqD a -> [a] -> a -> Bool
+    member eqDa [] y = False
+    member eqDa (x:xs) y = ((eq eqDa) x y) \/ (member eqDa xs y)
+
+\end{verbatim}
+\end{figure}
+
+Furthermore, Wadler and Blott's \textit{type classes} allow for subclassing.
+Subclassing introduces constraints on \textit{type classes}, allowing programmers
+to express natural properties of a \textit{type class} as a member of already
+existing \textit{type classes}. The example provided was the \verb|Num| class,
+which is a subclass of the \verb|Eq| class, as it can be assumed that any member
+of the \verb|Num| class would some form of numeric value, which can be compared
+for equality. Figure 4 demonstrates subclassing.
+
+\begin{figure}
+\caption{\protect\texttt{Num} class subclassing the \protect\texttt{Eq} class}
+\begin{verbatim}
+    
+    class Eq a => Num a where
+        (+)    :: a -> a -> a
+        (*)    :: a -> a -> a
+        negate :: a -> a
+
+\end{verbatim}
+\end{figure}
+
+\end{document}

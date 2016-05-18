@@ -1,0 +1,71 @@
+\documentclass[a4paper,fleqn,notitlepage]{scrartcl}
+
+\usepackage{caption}
+\captionsetup[figure]{font=small,skip=0pt}
+
+\usepackage{float}
+\floatstyle{boxed} 
+\restylefloat{figure}
+
+\title{Reading Response}
+\subtitle{\normalfont ``Type Classes in Haskell'' by Cordelia Hall, Kevin
+    Hammond, Peyton Jones, Philip Wadler}
+\author{Ross Bayer}
+\date{March 18, 2016}
+
+\begin{document}
+
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+``\textit{Type Classes in Haskell}'' presents a simplified set of formal rules
+and type judgements which reflect the implementation details for type classes in
+the Haskell programming language. The Haskell committee had intended to apply
+existing, well-understood methods for overloading operations, but no such
+standard exists. Most languages at the time, including SML and Miranda, that
+provided overloading did so only with a subset of operations and with no general
+tooling for users to overload non-supported operations. The committee was not
+satisfied with existing techniques and decided to adopt a new technique proposed
+by Wadler and Blott, type classes.
+
+I won't explain type classes in this reading response, as I have already
+outlined it for my previous reading response on Wadler and Blott's paper
+``\textit{How to make ad-hoc polymorphism less ad hoc}'', which introduces the
+formal idea of type classes that this paper builds upon. Instead, my
+understanding of this paper and how it improves upon Wadler and Blott's earlier
+paper.
+
+This paper improves upon Wadler and Blott's earlier paper in a number of ways.
+It fleshes out the technical details of implementing type classes. Specifically,
+Wadler and Blott's paper uses a single type environment while Haskell splits the
+type environment into more granular environments which store type variables, type
+constructors, type classes, instances, local instances, variables and local
+variables. Each holds a distinct domain of type information which are combined
+into a larger environment using a tuple. The section outlining environments also
+covers standard operations for extension, lookup, combinations, etc...
+
+The translation step is very similar to informal description in Wadler and Blott's
+paper. It is a simple matter of translating class declarations into a type
+declaration for a dictionary to hold all member functions and the declarations
+for each instance of the class. Functions that utilize a particular instance have
+that dictionary passed as a new parameter to the function.
+
+There are a large number of inference rules in this paper, I will be the first
+to say that it will take some more time for it all to sink in. They include
+judgements for types, expressions, dictionaries, class declarations,
+instance declarations and full programs. The rules are extensive and more
+detailed that Wadler and Blott's. Wadler and Blott use a much simpler language
+when formally specifying the typing and translation rules in their appendix,
+it assumes that type class declarations will be represented with the
+\textbf{over} and \textbf{inst} constructs. This paper uses a much more complex
+language with features similar to Haskell.
+
+Overall this paper presents a much more complex and complete understanding of
+how to implement adhoc-polymorphism in a language similar to Haskell. It is a
+marked improvement over the previous work of Wadler and Blott, which coined the
+term \textit{type class} and described at a high level how to implement them, as
+well as some preliminary work on a formal definition that in the end had some
+problems determining principle types in some cases.
+
+\end{document}

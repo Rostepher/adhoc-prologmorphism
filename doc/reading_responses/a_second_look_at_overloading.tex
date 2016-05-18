@@ -1,0 +1,83 @@
+\documentclass[a4paper,fleqn,notitlepage]{scrartcl}
+
+%\usepackage{float}
+%\floatstyle{boxed} 
+%\restylefloat{figure}
+
+\title{Reading Response}
+\subtitle{\normalfont ``A Second Look at Overloading'' by Martin Odersky, Philip Wadler, Martin Wehr}
+\author{Ross Bayer}
+\date{April 4, 2016}
+
+\begin{document}
+
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+``\textit{A Second Look at Overloading}'' by Martin Odersky, Philip Wadler and
+Martin Wehr explores another strategy to implement adhoc polymorphism in a 
+Hindley-Milner type system. The approach taken in the paper is contrasted with
+that of Haskell's type classes.
+
+This paper uses a small functional language called System O to demonstrate
+operator overloading and the formal semantics, both dynamic and static. Rather
+than using type classes to provide operator overloading by grouping related
+over-loadable operators together under a name, System O takes a more simplistic
+approach by allowing individual functions to be declared as over-loadable and
+have instances for different types. This approach proves more flexible, in my
+opinion than that of type classes. It could be used to implement type classes,
+using a simple translation step during or directly after the parsing step of a
+program, effectively as syntactic sugar.
+
+One of the most serious criticisms of type classes, as used in Haskell, is their
+inability to assign meaning to a program independent of it's types. It is not
+possible to show a correspondence between the typed static semantics of a
+program with type classes and the untyped, dynamic semantics. As the authors
+point out, there exists no untyped dynamic semantics for type classes at all.
+A simple restriction to type classes ensures that a program possesses a meaning
+that can be determined independently of its type. For any type class over the
+the type $\alpha$, each overloaded operator must have a type consistent with
+the form $\alpha \rightarrow \tau$, where $\tau$ may contain $\alpha$. The
+authors note that while this restriction makes it possible to construct an
+untyped dynamic semantics, it is more limited in expression.
+
+This paper focuses on a more generalized approach to type classes and operator
+overloading. Rather than declaring that a set of operators belong to a class,
+System O requires each operator to be individually declared as overloadable.
+An operator that is overloadable can have multiple instance declarations for
+different types. Types can still hold constraints over polymorphic types,
+however those constraints are no longer based on type classes, but rather
+individual operators. The loss of grouping with type classes may seem like a
+detriment in terms of terseness and overall expressability, but as the authors
+show with their example on page 137 (the example overloading $first$, $second$
+and $third$), it can be more powerful.
+
+The authors go to great lengths to prove the soundness of their extensions to
+the typical Hindley/Milner type system. The typing rules are presented in a
+clear manner with their additions clearly explained. What's more interesting is
+the compositional semantics, which are accompanied by a proof of its soundness.
+
+Much like the classical type classes, System O uses a translation step to
+transform instance declarations into valid, well-typed programs conforming to the
+underlying Hindley/Milner type system. The translation rules are straight-forward
+using a similar ``dictionary-passing'' translation rule.
+
+A really interesting feature of this paper is the inclusion of Record typing.
+The authors show that records can be introduced into System O with minimal effort
+and flexibly using overloading and another translation step.
+
+Overall, I really enjoyed this paper's unique approach to operator overloading.
+Maybe it's just the novelty of the solution, or the simplicity that makes it
+so alluring to me. I find this solution more useful that type classes in Haskell
+and I am left wanting a language that implements these ideas. I'm not sure if
+any exists in the real world, or if the existence of such a language would be
+receive the same kind of attention as those with type classes.
+
+As a side note, after reading this paper, it has become clear to me that it would
+be beneficial to read the initial paper(s) that introduce the Hindley/Milner type
+system, as it is referenced throughout with the assumption that the reader is
+familiar with its contents. I will tackle that paper(s) in my own time to better
+understand the Hindley/Milner type system.
+
+\end{document}

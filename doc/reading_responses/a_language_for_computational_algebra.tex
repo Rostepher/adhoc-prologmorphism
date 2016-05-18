@@ -1,0 +1,61 @@
+\documentclass[a4paper,fleqn,notitlepage]{scrartcl}
+
+\title{Reading Response}
+\subtitle{``A Language for Computational Algebra'' by Jenks and Trager}
+\author{Ross Bayer}
+\date{February 19, 2016}
+
+\begin{document}
+
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Jenks and Trager outline their design for the development of a language
+with extensible parameterized types and generic operators for computational
+algebra in their paper \textit{``A Language for Computational Algebra''}. The
+language they describe aims to provide programmers with tools to express
+algorithms dealing with algebraic objects ``at their most natural level of
+abstraction''. In an effort to facilitate the expression of algebraic properties,
+the language provides a number of constructs, namely: \textit{categories},
+\textit{domains}, and \textit{functors}.
+
+A category, in the context of this paper, contains a set of generic operations
+and a set of attributes that apply constraints to the concrete implementation
+of said operators. More abstractly, a category is a grouping of domains that
+share common operators and attributes.
+
+Domains, in the context of this paper, are similar to the mathematical sense. A
+domain describes a set of values that share a common set of generic operations
+and more concretely, the implementations and characteristics of said operations.
+For example, the authors point out the built-in domain \verb|Integer|, which is a 
+member of the \verb|OrderedSet| category, which provides the \verb|<| operator.
+
+Categories and Domains may be organized into hierarchies. Categories can be
+created as extensions of previously defined categories, which will include
+the extended operators and attributes as well as any that are newly defined.
+For example, the built-in \verb|Set| category describes the operator \verb|=|, 
+which is extended by the \verb|AbelianGroup| to provide the operators \verb|0|,
+\verb|+|, \verb|-| in addition to the previously defined \verb|=|.
+
+Functors are simply functions that return domains. A functor creates a domain,
+which is a member of a category. Functors specify the the representation of the
+domain. The domain remains a 
+
+The language described in this paper features adhoc-polymorphism through the
+\textit{categories}, \textit{domains} and \textit{functors} constructs. While
+the language described by Jenks and Trager was clearly developed for computational
+algebra, the implementation of adhoc-polymorphism can be applied to other general
+purpose programming languages. It appears to me, that Jenks and Trager's paper
+was a large influence on a number of more modern languages, such as Haskell and
+Rust after it.
+
+Haskell uses a similar approach to implementing adhoc-polymorphism. Categories 
+appear analogous to Haskell's typeclasses. A typeclass defines a set of common
+operations for a class of types. Domains and Functors are akin to concrete
+instances of a typeclass, in which the definitions of the shared operations is
+created for a given type. While the two approaches are similar, they still differ
+in that categories also define shared attributes between members of the same class.
+To my knowledge, a typeclass only defines shared operations.
+
+\end{document}
