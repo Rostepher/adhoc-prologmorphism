@@ -41,6 +41,7 @@ for my independent study on ``Adhoc Polymorphism in Hindley-Milner Type
 Systems''. Descriptions for each week chronicle my general work and thought
 process.
 
+
 \section*{Week 1}
 
 Knowing that the project for this independent study was to be implemented in the
@@ -168,7 +169,7 @@ straight-forward and easy to translate into Prolog code.
 \end{figure}
 
 I began the implementation of the basic interpreter, utilizing my code from PLC
-and the above specification.
+and the above specification I had a basic type checker and evaluator completed.
 
 
 \section*{Week 3}
@@ -213,6 +214,7 @@ language definition. The document is meant to evolve over time to show the full
 syntax, typing rules, semantics and eventually the extensions to the base language
 for adhoc polymorphism.
 
+
 \section*{Week 4}
 
 Starting with the fourth week I began reading the papers listed in the syllabus.
@@ -229,6 +231,7 @@ and provided all the functionality necessary to express both a lexer and parser.
 The lexer was mostly complete by the end of the week, after hours spent learning
 how to effectively use DCGs for transforming strings into a list of tokens.
 
+
 \section*{Week 5}
 
 In the fifth week, I read the paper \textit{``How to make ad-hoc polymorphism
@@ -243,21 +246,33 @@ family of lanugages, drawing inspiriation from Scheme and Typed Racket. By the
 end of the week, I had a portion of the grammar implemented using DCGs, but I wasn't
 fully satisfied with the ergonomics of the syntax.
 
+
 \section*{Week 6}
 
 For the sixth week I read the paper \textit{``Implementing Haskell Overloading''}
 by Lennart Augustsson. I proceeded to write a reading response for this paper,
 which sould be attached to this document.
 
-I continued implementing the parser and hunting down bugs this week. The parser
-was taking a more concrete shape
+I continued implementing the parser and hunting down some small bugs this week.
+The parser was taking a more concrete shape, it takes in a stream of tokens and
+produces a parse tree. From the parse tree, it then runs a transformation step
+to walk down the tree and ``lower'' complex terms, such as function application
+with multiple arguements into the more basic forms. The transformation step
+allows the language to have concrete syntax for multi-argument function
+declarations, lambdas and let expressions, while maintaing the small set of core
+forms and keeping the implementation of the type checker and evaluator simple.
+
 
 \section*{Week 7}
 
 Week seven I read the paper \textit{``Type classes in Haskell''} by Cordelia Hall,
 Kenvin Hammond, Simon Peyton Jones and Philip Wadler. In general, the paper was
 very terse, filled to the brim with a lot of notation that I was unfarmiliar with.
-I struggeled to connect the dots with the ...
+I struggeled to connect the dots with the large type environment and massive amount
+of type judgements. We discussed my concerns and questions in our weekly meeting.
+As for implementation, I spent a bit of time tweaking the lexer, parser and REPL
+to improve the ergonomics of the language.
+
 
 \section*{Week 8}
 
@@ -270,49 +285,241 @@ to this document.
 
 In week nine, I read the last paper listed in the syllabus, \textit{``A second
 look at overloading''} by Martin Odersky, Philip Wadler and Martin Wehr. I then
-wrote a reading response, which should be attached to this document.
+wrote a reading response, which should be attached to this document. I also
+decided that I would base my implementation of adhoc polymorphism on this paper
+rather than \textit{``Type classes in Haskell''}, primarily because I appreciated
+the more granular approach taken in the paper. The system it devises has some
+notable benefits over type classes, such as the ability to derive dynamic semantics
+and the ability to overload particular operators separately from a type class.
 
-TODO
+I added a few more base types to the interpreter, including \verb|float| and
+the type constructor \verb|list|, which required a number of special primitive
+forms. I used the similar assignment from PLC as the basis for the list
+implementation, adding a primitive \verb|nil| construct and \verb|cons| to
+construct lists over a type $\alpha$. A few more helper primitives were introduced
+to allow for list manipulation, including \verb|isNil|, \verb|head| and \verb|tail|.
+The operational semantics were straight-forward, as shown below:
+
+% judgement keywords
+\command{nil,cons,isNil,head,tail}
+
+\begin{figure}[H]
+\centering
+% nil
+\[\inference{}{(\<nil>(\tau), \rho, G) \Downarrow (\<nil>(\tau), G)}\]
+
+% cons
+\[
+    \inference
+    {
+        (M, \rho, G) \Downarrow (h, G') \\
+        (N, \rho, G) \Downarrow (t, G'')
+    }
+    {
+        (\<cons>(M, N), \rho, G) \Downarrow (\<cons>(h, t), G)
+    }
+\]
+
+% isNil
+\[
+    \inference{}{(\<isNil>(nil(\tau)),  \rho, G) \Downarrow (true, G)}
+    \inference{}{(\<isNil>(cons(M, N)), \rho, G) \Downarrow (false, G)}
+\]
+
+% head
+\[
+    \inference{}{(\<head>(nil(\tau)),  \rho, G) \Downarrow (\<nil>(\tau), G)}
+    \inference
+    {
+        (M, \rho, G) \Downarrow (h, G')
+    }
+    {
+        (\<head>(cons(M, N)), \rho, G) \Downarrow (h, G)
+    }
+\]
+
+% tail
+\[
+    \inference{}{(\<tail>(nil(\tau)),  \rho, G) \Downarrow (\<nil>(\tau), G)}
+    \inference
+    {
+        (N, \rho, G) \Downarrow (t, G')
+    }
+    {
+        (\<head>(cons(M, N)), \rho, G) \Downarrow (t, G)
+    }
+\]
+
+\end{figure}
+
+
 
 \section*{Week 10}
 
 Week ten was relatively hectic with other class work and tests. There was not
-much progress made on the interpreter
+much progress made on the interpreter. However, it became apparent during my
+meeting with Professor Nunes-Harwitt that the intepreter and type checker as
+they existed could not handle polymorphic list operations, as the \verb|nil|
+primitive form would determine it's type on first use and then never change,
+thus making all lists be of that type. In order to fix this behavior the
+introduction of parametric polymorphism (more commonly known as generics)
+would be required. We discussed possible strategies for impelementation,
+including the concept of a \textit{``type scheme''}.
 
-TODO
 
 \section*{Week 11}
 
 For week eleven, after returning from spring break, I began implementing a
-solution for parametric polymorphism based on the code Professor Nunes-Harwitt
-provided me.
+solution for parametric polymorphism based on the example code Professor
+Nunes-Harwitt wrote over the break. The new system worked by refreshing all
+type variables in expressions with fresh new Prolog variables. Everytime
+a type was retreived from the typothesis, all the type variables were
+replaced, so that the original type variables wouldn't be unified with
+a value.
+
+Type schemes were added to the type checker, which transform all types
+into potential polymorphic types. The new type system has monotypes $\tau$
+and polytypes $\sigma$ (type schemes) as shown below.
+
+\begin{figure}[H]
+\small
+\setlength{\grammarindent}{8em}
+\begin{grammar}
+<monotype $\tau$> = "bool"
+    \alt "float"
+    \alt "int"
+    \alt "list" $\tau$
+    \alt $\tau_1 \rightarrow \tau_2$
+
+<polytype $\sigma$> = $\tau$
+    \alt $\forall$ $\alpha$ . $\sigma$
+\end{grammar}
+\end{figure}
+
 
 \section*{Week 12}
 
-TODO
+I spent most of week twelve still working on implementing parametric polymorphism
+and dealing with a few unruly bugs. Most of my work focused on a new module in
+the interpreter that would walk down the abstract syntax tree of the program
+and \textit{``quantify''} all free type variables, removing the need for explicit
+\verb|forall| declarations in types. I ran into a bug midway through with type
+schemes exponentially nesting. I originally attributed this bug to some quirk in
+unification, looking frantically for places where I might have unified some
+variable on accident with another scheme. Only then did I realize that the problem
+was that of nested schemes not combining properly. To fix this issue, I created a
+few helper predicates to \textit{skolemize} the universal quantifiers, so that they
+are all at the front of a type. This solved the problem. On a side note, during
+this debugging I discovered the \verb|gtrace| predicate in SWI Prolog which
+provides a GUI debugger.
+
 
 \section*{Week 13}
 
-In week thirteen, I continued hunting down bugs with the base interpreter. A
+In week thirteen, I spent hours hunting down bugs with the base interpreter. A
 mildly infuriating bug was causing \verb|defun| and \verb|defvar| declarations
-to act differently when assigned to analogous function bodies.
+to act differently when assigned to analogous function bodies. After a lot of
+digging, I discovered that the bug is caused by the handling of fresh type
+variables. Currently all fresh type variables are created when a type is
+retreived from the environment with \verb|lookup|, however the new fresh
+type variables are not used to replace the old ones in other expressions. To
+fix this bug, it would have required me to re-implement large poritions of the
+type checker to handle type variables differently. I did not have enough time
+left in the week, thus I decided that it would be more beneficial to get started
+implementing adhoc polymorphism instead. The bug only appeard to be affecting
+expressions in \verb|defvar| declarations.
+
+I also spent time re-implementing parts of the REPL, allowing for some select
+command line arguments to be passed in. Now the REPL could read in files,
+execute the contained code and then start the REPL with that code loaded into
+the environment.
+
 
 \section*{Week 14}
 
+Week fourteen was relatively slow. I didn't get as much progress as I would
+have liked completed I began the implementation of adhoc polymorphism in the
+lexer and parser. I constructed some basic syntax and transformations to
+properly lex and parse overload and instance declarations. The looks something
+like:
+
+\begin{figure}[H]
+\centering
+\begin{verbatim}
+
+  (over =)
+
+  (inst (= : int -> int -> bool)      =int)
+  (inst (= : float -> float -> float) =float)
+\end{verbatim}
+\end{figure}
+
+\verb|over| declarations are used to explicitly declare and overloaded operator.
+\verb|inst| declarations are used to declare particular type-dependent
+instances of an operator and associated expression, whose type is to be
+enforced.
 
 
 \section*{Week 15}
 
-For week fifteen, I started devising and implementing the new, extended type
-environment which holds not only the typothesis $\Gamma$, but also a mapping
+For week fifteen, I started off by devising and implementing the new, extended
+type environment which holds not only the typothesis $\Gamma$, but also a mapping
 of overloaded operators to instance declarations and a mapping of instances
 operators and type signatures to unique instance names. The new type
-environment required a lot of helper predicates to...
+environment required a lot of helper predicates to insert overload statements and
+associated instance statements into the environment. With the new environment in
+place, I linked the pieces together in the type checker, testing that \verb|over|
+and \verb|inst| declarations were properly lexed and parsed, then inserted into
+the enviornment. I made sure to enforce a few preconditions, such as overloaded
+operator uniqueness. Once an operator has been declared as overloaded, it can't be
+re-declared, similar to \verb|inst| delcarations, which can't be redeclared for
+the same type. \verb|inst| declarations for a particular overloaded operator must
+also require that the operator has already been overloded in the environment.
+
+I wrapped up my work for the week by implementing basic overloading by modifying
+the \verb|lookup| predicates in the type checker. They would first check to see
+if the variable being looked up was an overloaded operator, if so it would attempt
+to find the instance with the proper type signature. I did not finish implementing
+type constraints, which would enforce that a function or instance require
+other overloaded operators for a polymorphic type $\alpha$.
+
+The same bug from week thirteen was a massive problem when implementing overloading.
+Generating fresh variables for an expression does not work completely with the
+new environment and does not extend beyond the current expression. To completely
+resolve this issue, I would have needed to approach the situation differently. It
+would have been beneficial from the start to thread a fresh variable environment
+through the type environment. As expression types are being unified, the fresh
+types from previous expressions could be inserted where applicable.
+
 
 \section*{Week 16}
 
-Week sixteen I spent time wrapping up the implementation of the interpreter. I
+Week sixteen is finals week, which I spent my remaining time wrapping up the
+some small portions of the interpreter and fleshing the documentation.
+
 
 \section*{Retrospective}
+
+This independent study was a valuable learning experience for me, I gained not
+only an understanding of adhoc polymorphism and it's various implementation
+strategies, but also a better understanding of first-order predicate logic and
+unification, a-la Prolog. Over the course of the semester, I continuously ran
+into small bugs in my implemenation that delayed my progress for sometimes many
+hours. In hind-sight, the bugs were primarily small and easily fixable.
+
+I did not finish implementing adhoc polymorphism, basic \verb|over| and
+\verb|inst| declarations work, but type constraints are non-functional, as well
+as the long-standing bug with \verb|nil|
+
+If I could start this project again from the beginning, I might have picked a
+different language. Prolog is interesting and lends itself well to both
+type judgements and semantic judgements. The translation is almost one-to-one
+and the built-in unification greatly reduces the amount of code required.
+However, for more complex behaviors, such as threading complex environments
+through the interpreter or creating a CLI, Prolog is not well suited. It would
+have been more beneficial to use a language that provides the ability to
+construct, complex types and associated functions. As the complexity of a
+Prolog predicate grows, so must it's argument count.
+
 
 \end{document}
